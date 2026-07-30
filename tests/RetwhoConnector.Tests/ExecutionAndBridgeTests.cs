@@ -130,6 +130,47 @@ public sealed class ExecutionAndBridgeTests
         Assert.Equal("localhost_agent", adapter.LastPayloadClientType);
     }
 
+    [Fact]
+    public async Task Bridge_CommandIsAcknowledgedExactlyOnceWhenHandlerThrows()
+    {
+        var adapter = new FakeSocketAdapter
+        {
+            RegistrationResponse = new BridgeEnvelope<RegistrationResponse>
+            {
+                Ok = true,
+                Code = "REGISTERED",
+                Data = new RegistrationResponse
+                {
+                    Room = "room_FAKE-LICENSE-001",
+                    ClientType = "localhost_agent",
+                },
+            },
+        };
+        var client = new BridgeSocketClient(
+            new FakeSocketAdapterFactory(adapter),
+            new BridgeOptions(),
+            NullLogger<BridgeSocketClient>.Instance);
+        client.ActionReceived += async (context, _) =>
+        {
+            await context.AcknowledgeOnceAsync(
+                BridgeAcknowledgement.Success(new { value = 1 }));
+            throw new InvalidOperationException("Test handler failure.");
+        };
+        await client.ConnectAsync("FAKE-LICENSE-001", CancellationToken.None);
+        using JsonDocument document = JsonDocument.Parse("{}");
+        var socketContext = new FakeSocketEventContext(new BridgeAction
+        {
+            ActionId = "action-1",
+            Command = "get_current_data",
+            Params = document.RootElement.Clone(),
+            Timestamp = DateTimeOffset.UtcNow,
+        });
+
+        await adapter.RaiseAsync("execute_local_action", socketContext);
+
+        Assert.Equal(1, socketContext.SendCount);
+    }
+
     private static BridgeActionContext CreateActionContext(
         Func<BridgeAcknowledgement, Task> acknowledge,
         string command = "get_current_data")
@@ -310,11 +351,32 @@ public sealed class ExecutionAndBridgeTests
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
+        public Task RaiseAsync(
+            string eventName,
+            ISocketEventContext context) =>
+            _handlers[eventName](context);
+
         public void TouchEvents()
         {
             _ = DisconnectedEvent;
             _ = ErrorEvent;
             _ = ReconnectAttemptEvent;
+        }
+    }
+
+    private sealed class FakeSocketEventContext(object value)
+        : ISocketEventContext
+    {
+        public int SendCount { get; private set; }
+
+        public T? GetValue<T>(int index) => (T)value;
+
+        public Task SendAckDataAsync(
+            object response,
+            CancellationToken cancellationToken)
+        {
+            SendCount++;
+            return Task.CompletedTask;
         }
     }
 }

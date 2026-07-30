@@ -215,12 +215,13 @@ public sealed partial class BridgeSocketClient : IBridgeSocketClient
 
     private async Task HandleActionEventAsync(ISocketEventContext socketContext)
     {
+        BridgeActionContext? actionContext = null;
         try
         {
             BridgeAction action = socketContext.GetValue<BridgeAction>(0)
                 ?? throw new JsonException("Command payload is missing.");
             BridgeActionValidator.Validate(action);
-            var context = new BridgeActionContext(
+            actionContext = new BridgeActionContext(
                 action,
                 (response, token) =>
                     socketContext.SendAckDataAsync(response, token),
@@ -228,7 +229,7 @@ public sealed partial class BridgeSocketClient : IBridgeSocketClient
             Delegate[] handlers = ActionReceived?.GetInvocationList() ?? [];
             if (handlers.Length == 0 || !IsRegistered)
             {
-                await context.AcknowledgeOnceAsync(
+                await actionContext.AcknowledgeOnceAsync(
                     BridgeAcknowledgement.Failure(
                         "NOT_REGISTERED: The connector is not registered."))
                     .ConfigureAwait(false);
@@ -238,14 +239,14 @@ public sealed partial class BridgeSocketClient : IBridgeSocketClient
             foreach (Delegate handler in handlers)
             {
                 await ((Func<BridgeActionContext, CancellationToken, Task>)handler)(
-                    context,
+                    actionContext,
                     _sessionSource?.Token ?? CancellationToken.None)
                     .ConfigureAwait(false);
             }
 
-            if (!context.IsAcknowledged)
+            if (!actionContext.IsAcknowledged)
             {
-                await context.AcknowledgeOnceAsync(
+                await actionContext.AcknowledgeOnceAsync(
                     BridgeAcknowledgement.Failure(
                         "INTERNAL_ERROR: The command produced no acknowledgement."))
                     .ConfigureAwait(false);
@@ -253,10 +254,21 @@ public sealed partial class BridgeSocketClient : IBridgeSocketClient
         }
         catch (Exception)
         {
-            await socketContext.SendAckDataAsync(
-                BridgeAcknowledgement.Failure(
-                    "INVALID_ACTION: The bridge command is invalid."),
-                CancellationToken.None).ConfigureAwait(false);
+            BridgeAcknowledgement failure = BridgeAcknowledgement.Failure(
+                actionContext is null
+                    ? "INVALID_ACTION: The bridge command is invalid."
+                    : "INTERNAL_ERROR: The command handler failed.");
+            if (actionContext is null)
+            {
+                await socketContext.SendAckDataAsync(
+                    failure,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+            else
+            {
+                await actionContext.AcknowledgeOnceAsync(failure)
+                    .ConfigureAwait(false);
+            }
         }
     }
 
