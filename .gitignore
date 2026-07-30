@@ -1,32 +1,16 @@
-# Prerequisites
-*.d
+.vs/
+.worktrees/
+**/bin/
+**/obj/
+TestResults/
+*.user
+*.suo
+*.log
+publish/
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
+# Never commit copied runtime settings, exports, or secrets.
+settings.json
+settings.*.json
+login.txt
+vdatetime.txt
+socket.txt
