@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<domain:sysDateTime
+    xmlns:domain="urn:vfi-sapphire:np.domain.2001-07-01"
+    xmlns:vs="urn:vfi-sapphire:vs.2001-10-01">
+  <vs:site>6720</vs:site>
+  <sysDT>2026-07-30T14:31:18-04:00</sysDT>
+  <sysTzId>US/Eastern</sysTzId>
+  <tZone>
+    <tzId>US/Eastern</tzId>
+    <offset>-300</offset>
+    <dstApplies>1</dstApplies>
+  </tZone>
+  <tZone>
+    <tzId>US/Arizona</tzId>
+    <offset>-420</offset>
+    <dstApplies>0</dstApplies>
+  </tZone>
+</domain:sysDateTime>

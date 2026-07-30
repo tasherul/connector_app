@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<domain:credential
+    xmlns:domain="urn:vfi-sapphire:np.domain.2001-07-01"
+    xmlns:vs="urn:vfi-sapphire:vs.2001-10-01">
+  <cookie>FAKE_COOKIE_FOR_TESTS_ONLY</cookie>
+  <vs:site>6720</vs:site>
+</domain:credential>
