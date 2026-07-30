@@ -1,23 +1,46 @@
-﻿using System.Text;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using RetwhoConnector.App.ViewModels;
 
 namespace RetwhoConnector.App;
 
-/// <summary>
-/// Interaction logic for MainWindow.xaml
-/// </summary>
 public partial class MainWindow : Window
 {
-    public MainWindow()
+    private readonly MainWindowViewModel _viewModel;
+    private bool _loadingSecrets;
+
+    public MainWindow(MainWindowViewModel viewModel)
     {
         InitializeComponent();
+        _viewModel = viewModel;
+        DataContext = viewModel;
+        Loaded += OnLoaded;
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        _loadingSecrets = true;
+        LicenseKeyBox.Password = _viewModel.LicenseKey;
+        PosPasswordBox.Password = _viewModel.PosPassword;
+        _loadingSecrets = false;
+    }
+
+    private void LicenseKeyBox_OnPasswordChanged(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (!_loadingSecrets)
+        {
+            _viewModel.LicenseKey = LicenseKeyBox.Password;
+        }
+    }
+
+    private void PosPasswordBox_OnPasswordChanged(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (!_loadingSecrets)
+        {
+            _viewModel.PosPassword = PosPasswordBox.Password;
+        }
     }
 }

@@ -51,6 +51,7 @@ public sealed class ConnectorCoordinator : IAsyncDisposable
 
     public ConnectorStatus CurrentStatus { get; private set; } = new();
     public event EventHandler<ConnectorStatus>? StatusChanged;
+    public event EventHandler<VdatetimeResult>? ResultReceived;
 
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
@@ -244,6 +245,7 @@ public sealed class ConnectorCoordinator : IAsyncDisposable
                     LastCommandTimestamp = _timeProvider.GetUtcNow(),
                     Message = "Command completed.",
                 });
+                ResultReceived?.Invoke(this, result);
                 _logger.LogInformation(
                     "Command completed for action {ActionId} in {ElapsedMilliseconds} ms",
                     action.ActionId,
