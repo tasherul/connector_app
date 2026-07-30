@@ -10,6 +10,12 @@ internal interface ISettingsFileStore
     Task DeleteAsync(string path, CancellationToken cancellationToken);
 }
 
+internal interface ISecretProtector
+{
+    string Protect(string plaintext);
+    string Unprotect(string ciphertext);
+}
+
 internal interface ICertificateProbe
 {
     Task<(X509Certificate2 Certificate, SslPolicyErrors PolicyErrors)> InspectAsync(
