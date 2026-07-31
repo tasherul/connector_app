@@ -18,11 +18,28 @@ public sealed class MainWindowViewModel : ObservableObject
     private readonly IConfigurationDialogService _configurationDialog;
     private readonly IApplicationControlService _applicationControl;
     private readonly IUserDialogService _dialogs;
+    private static readonly DashboardStatusSnapshot InitialDashboardSnapshot =
+        DashboardStatusMapper.Map(
+            new ConnectorStatus(),
+            new LogPipelineHealth(
+                LoggingHealthState.Stopped,
+                0,
+                "Local logging is stopped"));
+    private ConnectorStatus _latestStatus = new();
+    private LogPipelineHealth _latestLoggingHealth = new(
+        LoggingHealthState.Stopped,
+        0,
+        "Local logging is stopped");
     private bool _isBusy;
-    private string _configurationStatus = "Missing configuration";
-    private string _serverStatus = "Offline";
-    private string _agentStatus = "Idle";
-    private string _loggingStatus = "Stopped";
+    private DashboardStatusItem _configurationIndicator =
+        InitialDashboardSnapshot.Configuration;
+    private DashboardStatusItem _serverIndicator = InitialDashboardSnapshot.Server;
+    private DashboardStatusItem _agentIndicator = InitialDashboardSnapshot.Agent;
+    private DashboardStatusItem _loggingIndicator = InitialDashboardSnapshot.Logs;
+    private string _configurationStatus = InitialDashboardSnapshot.Configuration.Status;
+    private string _serverStatus = InitialDashboardSnapshot.Server.Status;
+    private string _agentStatus = InitialDashboardSnapshot.Agent.Status;
+    private string _loggingStatus = InitialDashboardSnapshot.Logs.Status;
     private string _connectionActionText = "Connect";
     private string _bannerMessage =
         "Open Settings to configure the local POS and license.";
@@ -110,6 +127,30 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         get => _bannerMessage;
         private set => SetProperty(ref _bannerMessage, value);
+    }
+
+    public DashboardStatusItem ConfigurationIndicator
+    {
+        get => _configurationIndicator;
+        private set => SetProperty(ref _configurationIndicator, value);
+    }
+
+    public DashboardStatusItem ServerIndicator
+    {
+        get => _serverIndicator;
+        private set => SetProperty(ref _serverIndicator, value);
+    }
+
+    public DashboardStatusItem AgentIndicator
+    {
+        get => _agentIndicator;
+        private set => SetProperty(ref _agentIndicator, value);
+    }
+
+    public DashboardStatusItem LoggingIndicator
+    {
+        get => _loggingIndicator;
+        private set => SetProperty(ref _loggingIndicator, value);
     }
 
     public IAsyncRelayCommand OpenSettingsCommand { get; }
@@ -257,49 +298,40 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void ApplyStatus(ConnectorStatus status)
     {
-        ConfigurationStatus = status.PosConfiguration switch
-        {
-            PosConfigurationState.Configured => "Configured",
-            PosConfigurationState.Invalid => "Invalid",
-            _ => "Missing configuration",
-        };
-        ServerStatus = status.BridgeTransport switch
-        {
-            BridgeTransportState.Connected => "Connected",
-            BridgeTransportState.Connecting => "Connecting",
-            BridgeTransportState.Reconnecting => "Reconnecting",
-            BridgeTransportState.AuthenticationFailed =>
-                "Authentication failed",
-            BridgeTransportState.SessionReplaced => "Session replaced",
-            BridgeTransportState.Stopping => "Disconnecting",
-            _ => "Offline",
-        };
-        AgentStatus = status.AgentRegistration switch
-        {
-            AgentRegistrationState.Registered => "Active",
-            AgentRegistrationState.Failed => "Error",
-            AgentRegistrationState.SessionReplaced => "Inactive",
-            _ => "Idle",
-        };
-        ConnectionActionText = status.BridgeTransport is
+        _latestStatus = status;
+        ApplyDashboardSnapshot();
+    }
+
+    private void ApplyLoggingHealth(LogPipelineHealth health)
+    {
+        _latestLoggingHealth = health;
+        ApplyDashboardSnapshot();
+    }
+
+    private void ApplyDashboardSnapshot()
+    {
+        DashboardStatusSnapshot snapshot = DashboardStatusMapper.Map(
+            _latestStatus,
+            _latestLoggingHealth);
+        ConfigurationIndicator = snapshot.Configuration;
+        ServerIndicator = snapshot.Server;
+        AgentIndicator = snapshot.Agent;
+        LoggingIndicator = snapshot.Logs;
+
+        // Keep the existing bindings intact until the status rail consumes the
+        // semantic items directly in the next dashboard task.
+        ConfigurationStatus = snapshot.Configuration.Status;
+        ServerStatus = snapshot.Server.Status;
+        AgentStatus = snapshot.Agent.Status;
+        LoggingStatus = snapshot.Logs.Status;
+
+        ConnectionActionText = _latestStatus.BridgeTransport is
             BridgeTransportState.Connected or
             BridgeTransportState.Connecting or
             BridgeTransportState.Reconnecting
                 ? "Disconnect"
                 : "Connect";
-        BannerMessage = status.Message;
-    }
-
-    private void ApplyLoggingHealth(LogPipelineHealth health)
-    {
-        LoggingStatus = health.State switch
-        {
-            LoggingHealthState.Healthy => "Healthy",
-            LoggingHealthState.Degraded when health.DroppedEntries > 0 =>
-                $"Degraded ({health.DroppedEntries} dropped)",
-            LoggingHealthState.Degraded => "Degraded",
-            _ => "Stopped",
-        };
+        BannerMessage = _latestStatus.Message;
     }
 
     private void RefreshActivityEntries()

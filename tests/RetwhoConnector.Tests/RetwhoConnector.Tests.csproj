@@ -27,6 +27,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\..\src\RetwhoConnector.App\ViewModels\DashboardStatusModels.cs"
+             Link="Linked\DashboardStatusModels.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\..\src\RetwhoConnector.App\App.xaml"
           Link="Fixtures\App.xaml"
           CopyToOutputDirectory="PreserveNewest" />
