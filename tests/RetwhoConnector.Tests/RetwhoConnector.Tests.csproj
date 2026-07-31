@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="coverlet.collector">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
@@ -29,10 +30,20 @@
   <ItemGroup>
     <Compile Include="..\..\src\RetwhoConnector.App\ViewModels\DashboardStatusModels.cs"
              Link="Linked\DashboardStatusModels.cs" />
+    <Compile Include="..\..\src\RetwhoConnector.App\ViewModels\LogEntryViewModel.cs"
+             Link="Linked\LogEntryViewModel.cs" />
+    <Compile Include="..\..\src\RetwhoConnector.App\ViewModels\MainWindowViewModel.cs"
+             Link="Linked\MainWindowViewModel.cs" />
     <Compile Include="..\..\src\RetwhoConnector.App\Converters\DashboardSignalToBrushConverter.cs"
              Link="Linked\DashboardSignalToBrushConverter.cs" />
     <Compile Include="..\..\src\RetwhoConnector.App\Converters\WidthToStatusColumnCountConverter.cs"
              Link="Linked\WidthToStatusColumnCountConverter.cs" />
+    <Compile Include="..\..\src\RetwhoConnector.App\Services\IApplicationControlService.cs"
+             Link="Linked\IApplicationControlService.cs" />
+    <Compile Include="..\..\src\RetwhoConnector.App\Services\IConfigurationDialogService.cs"
+             Link="Linked\IConfigurationDialogService.cs" />
+    <Compile Include="..\..\src\RetwhoConnector.App\Services\IUserDialogService.cs"
+             Link="Linked\IUserDialogService.cs" />
   </ItemGroup>
 
   <ItemGroup>

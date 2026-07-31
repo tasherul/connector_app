@@ -300,6 +300,7 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         _latestStatus = status;
         ApplyDashboardSnapshot();
+        BannerMessage = status.Message;
     }
 
     private void ApplyLoggingHealth(LogPipelineHealth health)
@@ -331,7 +332,6 @@ public sealed class MainWindowViewModel : ObservableObject
             BridgeTransportState.Reconnecting
                 ? "Disconnect"
                 : "Connect";
-        BannerMessage = _latestStatus.Message;
     }
 
     private void RefreshActivityEntries()

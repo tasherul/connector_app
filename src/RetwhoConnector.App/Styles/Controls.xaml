@@ -17,6 +17,16 @@
         <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
         <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="{DynamicResource DisabledBackgroundBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DisabledBorderBrush}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
     <Style TargetType="TextBox">
         <Setter Property="MinHeight" Value="34" />
@@ -26,6 +36,16 @@
         <Setter Property="Foreground" Value="{DynamicResource InputForegroundBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
         <Setter Property="CaretBrush" Value="{DynamicResource InputForegroundBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="{DynamicResource DisabledBackgroundBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DisabledBorderBrush}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
     <Style TargetType="PasswordBox">
         <Setter Property="MinHeight" Value="34" />
@@ -35,6 +55,16 @@
         <Setter Property="Foreground" Value="{DynamicResource InputForegroundBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
         <Setter Property="CaretBrush" Value="{DynamicResource InputForegroundBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="{DynamicResource DisabledBackgroundBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DisabledBorderBrush}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
     <Style TargetType="ToolTip">
         <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
@@ -100,6 +130,11 @@
                                       Height="16"
                                       Data="{TemplateBinding Tag}"
                                       Fill="{TemplateBinding Foreground}"
+                                      Stroke="{TemplateBinding Foreground}"
+                                      StrokeThickness="1.25"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
                                       Stretch="Uniform"
                                       VerticalAlignment="Center" />
                                 <ContentPresenter x:Name="ButtonContent"
@@ -141,15 +176,23 @@
 
     <Style x:Key="SettingsButtonStyle" TargetType="Button" BasedOn="{StaticResource ModernButtonBaseStyle}">
         <Setter Property="Tag" Value="{StaticResource SettingsIconGeometry}" />
-        <Setter Property="Background" Value="{DynamicResource OutlinedButtonBackgroundBrush}" />
+        <Setter Property="Background" Value="{DynamicResource NeutralButtonBackgroundBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource OutlinedButtonBorderBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource NeutralButtonBorderBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource NeutralButtonHoverBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource NeutralButtonPressedBrush}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
     <Style x:Key="ConnectionButtonStyle" TargetType="Button" BasedOn="{StaticResource ModernButtonBaseStyle}">
         <Setter Property="Tag" Value="{StaticResource ConnectIconGeometry}" />
-        <Setter Property="Background" Value="{DynamicResource SuccessBrush}" />
-        <Setter Property="Foreground" Value="{DynamicResource OnAccentTextBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource SuccessBrush}" />
+        <Setter Property="Background" Value="{DynamicResource SuccessButtonBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource OnSuccessTextBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SuccessButtonBackgroundBrush}" />
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Background" Value="{DynamicResource SuccessButtonHoverBrush}" />
@@ -181,21 +224,29 @@
     </Style>
     <Style x:Key="LogsButtonStyle" TargetType="Button" BasedOn="{StaticResource ModernButtonBaseStyle}">
         <Setter Property="Tag" Value="{StaticResource FolderIconGeometry}" />
-        <Setter Property="Background" Value="{DynamicResource OutlinedButtonBackgroundBrush}" />
-        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource OutlinedButtonBorderBrush}" />
+        <Setter Property="Background" Value="{DynamicResource InfoOutlineBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource InfoOutlineTextBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource InfoOutlineBorderBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource InfoOutlineHoverBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource InfoOutlinePressedBrush}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
     <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource ModernButtonBaseStyle}">
         <Setter Property="Tag" Value="{StaticResource ExitIconGeometry}" />
-        <Setter Property="Background" Value="{DynamicResource DangerButtonBackgroundBrush}" />
-        <Setter Property="Foreground" Value="{DynamicResource OnDangerTextBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource DangerButtonBackgroundBrush}" />
+        <Setter Property="Background" Value="{DynamicResource DangerOutlineBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DangerOutlineTextBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DangerOutlineBorderBrush}" />
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{DynamicResource DangerButtonHoverBrush}" />
+                <Setter Property="Background" Value="{DynamicResource DangerOutlineHoverBrush}" />
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
-                <Setter Property="Background" Value="{DynamicResource DangerButtonPressedBrush}" />
+                <Setter Property="Background" Value="{DynamicResource DangerOutlinePressedBrush}" />
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -203,11 +254,27 @@
         <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource OnAccentTextBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource ButtonPressedBackgroundBrush}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
     <Style x:Key="DialogSecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource ModernButtonBaseStyle}">
-        <Setter Property="Background" Value="{DynamicResource OutlinedButtonBackgroundBrush}" />
+        <Setter Property="Background" Value="{DynamicResource NeutralButtonBackgroundBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource OutlinedButtonBorderBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource NeutralButtonBorderBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource NeutralButtonHoverBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource NeutralButtonPressedBrush}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
     <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogSecondaryButtonStyle}" />
 

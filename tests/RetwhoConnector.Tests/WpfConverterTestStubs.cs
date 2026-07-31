@@ -9,10 +9,26 @@ namespace System.Windows
 
         public static Application? Current { get; set; }
 
+        public Threading.Dispatcher Dispatcher { get; } = new();
+
         public object? TryFindResource(string key) =>
             _resources.GetValueOrDefault(key);
 
         public void SetResource(string key, object value) => _resources[key] = value;
+    }
+}
+
+namespace System.Windows.Threading
+{
+    public sealed class Dispatcher
+    {
+        public bool CheckAccess() => true;
+
+        public Task InvokeAsync(Action action)
+        {
+            action();
+            return Task.CompletedTask;
+        }
     }
 }
 

@@ -157,7 +157,7 @@
                 <Button Content="{Binding ConnectionActionText}"
                         Command="{Binding ToggleConnectionCommand}"
                         Style="{StaticResource ConnectionButtonStyle}"
-                        AutomationProperties.Name="Connect or disconnect" />
+                        AutomationProperties.Name="{Binding ConnectionActionText}" />
                 <Button Content="Open Logs Folder"
                         Command="{Binding OpenLogsFolderCommand}"
                         Style="{StaticResource LogsButtonStyle}"

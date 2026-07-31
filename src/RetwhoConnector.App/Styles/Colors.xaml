@@ -39,14 +39,30 @@
     <SolidColorBrush x:Key="OutlinedButtonBackgroundBrush" Color="#111D2F" />
     <SolidColorBrush x:Key="OutlinedButtonHoverBrush" Color="#223752" />
     <SolidColorBrush x:Key="OutlinedButtonBorderBrush" Color="#7DD3FC" />
+    <SolidColorBrush x:Key="NeutralButtonBackgroundBrush" Color="#111D2F" />
+    <SolidColorBrush x:Key="NeutralButtonHoverBrush" Color="#223752" />
+    <SolidColorBrush x:Key="NeutralButtonPressedBrush" Color="#2A405C" />
+    <SolidColorBrush x:Key="NeutralButtonBorderBrush" Color="#64748B" />
+    <SolidColorBrush x:Key="InfoOutlineBackgroundBrush" Color="#111D2F" />
+    <SolidColorBrush x:Key="InfoOutlineHoverBrush" Color="#173B55" />
+    <SolidColorBrush x:Key="InfoOutlinePressedBrush" Color="#1E4763" />
+    <SolidColorBrush x:Key="InfoOutlineTextBrush" Color="#BAE6FD" />
+    <SolidColorBrush x:Key="InfoOutlineBorderBrush" Color="#38BDF8" />
+    <SolidColorBrush x:Key="DangerOutlineBackgroundBrush" Color="#111D2F" />
+    <SolidColorBrush x:Key="DangerOutlineHoverBrush" Color="#3A1B27" />
+    <SolidColorBrush x:Key="DangerOutlinePressedBrush" Color="#4C1725" />
+    <SolidColorBrush x:Key="DangerOutlineTextBrush" Color="#FDA4AF" />
+    <SolidColorBrush x:Key="DangerOutlineBorderBrush" Color="#FB7185" />
     <SolidColorBrush x:Key="ButtonHoverBackgroundBrush" Color="#0EA5E9" />
     <SolidColorBrush x:Key="ButtonPressedBackgroundBrush" Color="#0284C7" />
     <SolidColorBrush x:Key="DangerButtonBackgroundBrush" Color="#B91C1C" />
-    <SolidColorBrush x:Key="DangerButtonHoverBrush" Color="#DC2626" />
-    <SolidColorBrush x:Key="DangerButtonPressedBrush" Color="#991B1B" />
-    <SolidColorBrush x:Key="SuccessButtonHoverBrush" Color="#16A34A" />
-    <SolidColorBrush x:Key="SuccessButtonPressedBrush" Color="#15803D" />
+    <SolidColorBrush x:Key="DangerButtonHoverBrush" Color="#991B1B" />
+    <SolidColorBrush x:Key="DangerButtonPressedBrush" Color="#7F1D1D" />
+    <SolidColorBrush x:Key="SuccessButtonBackgroundBrush" Color="#166534" />
+    <SolidColorBrush x:Key="SuccessButtonHoverBrush" Color="#14532D" />
+    <SolidColorBrush x:Key="SuccessButtonPressedBrush" Color="#0F3D22" />
     <SolidColorBrush x:Key="OnAccentTextBrush" Color="#07111F" />
+    <SolidColorBrush x:Key="OnSuccessTextBrush" Color="#F8FAFC" />
     <SolidColorBrush x:Key="OnDangerTextBrush" Color="#FFF7F7" />
 
     <!-- The activity feed keeps muted tinted, but still opaque, category surfaces. -->

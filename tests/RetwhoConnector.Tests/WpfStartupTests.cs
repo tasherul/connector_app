@@ -150,7 +150,7 @@ public sealed class WpfStartupTests
         AssertButtonStyle(
             document,
             presentation,
-            "Connect or disconnect",
+            "{Binding ConnectionActionText}",
             "ConnectionButtonStyle");
         AssertButtonStyle(
             document,
@@ -162,6 +162,13 @@ public sealed class WpfStartupTests
             presentation,
             "Exit application",
             "DangerButtonStyle");
+
+        XElement connectionButton = Assert.Single(
+            document.Descendants(presentation + "Button"),
+            element => element.Attribute("Content")?.Value == "{Binding ConnectionActionText}");
+        Assert.Equal(
+            "{Binding ConnectionActionText}",
+            connectionButton.Attribute("AutomationProperties.Name")?.Value);
 
         XElement activityList = Assert.Single(
             document.Descendants(presentation + "ListBox"),
@@ -230,6 +237,10 @@ public sealed class WpfStartupTests
             presentation,
             "Clear Saved Settings",
             "DangerButtonStyle");
+        XElement clearButton = Assert.Single(
+            document.Descendants(presentation + "Button"),
+            element => element.Attribute("Content")?.Value == "Clear Saved Settings");
+        Assert.Equal("{x:Null}", clearButton.Attribute("Tag")?.Value);
         AssertButtonStyle(
             document,
             presentation,

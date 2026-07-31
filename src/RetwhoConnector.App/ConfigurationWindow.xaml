@@ -81,6 +81,7 @@
             </Grid.ColumnDefinitions>
             <Button Content="Clear Saved Settings"
                     Command="{Binding ClearCommand}"
+                    Tag="{x:Null}"
                     Style="{StaticResource DangerButtonStyle}" />
             <StackPanel Grid.Column="2"
                         Orientation="Horizontal"

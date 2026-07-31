@@ -126,6 +126,20 @@ public sealed class DashboardStatusMappingTests
         Assert.Equal("CloudIconGeometry", result.Server.IconKey);
     }
 
+    [Fact]
+    public void Map_PrioritizesReconnectingTransportOverTransientRegistrationFailure()
+    {
+        DashboardStatusSnapshot result = Map(status => status with
+        {
+            BridgeTransport = BridgeTransportState.Reconnecting,
+            AgentRegistration = AgentRegistrationState.Failed,
+        });
+
+        Assert.Equal("Reconnecting", result.Server.Status);
+        Assert.Equal("Reconnecting to Retwho", result.Server.Description);
+        Assert.Equal(DashboardSignal.Warning, result.Server.Signal);
+    }
+
     [Theory]
     [InlineData(
         AgentRegistrationState.Registering,

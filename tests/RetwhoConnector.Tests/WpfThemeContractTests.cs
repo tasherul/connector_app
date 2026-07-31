@@ -45,6 +45,87 @@ public sealed class WpfThemeContractTests
     }
 
     [Fact]
+    public void EveryButtonState_UsesAContrastSafeForegroundAndBackgroundPair()
+    {
+        IReadOnlyDictionary<string, string> values = BrushValues(LoadFixture("Colors.xaml"));
+        XDocument controls = LoadFixture("Controls.xaml");
+
+        foreach (ButtonPalette palette in ButtonPalettes)
+        {
+            XElement style = FindStyle(controls, palette.StyleKey);
+            AssertSetterUsesResource(style, "Foreground", palette.Foreground);
+            AssertSetterUsesResource(style, "Background", palette.Background);
+            AssertStyleStateSetter(style, "IsMouseOver", palette.HoverBackground);
+            AssertStyleStateSetter(style, "IsPressed", palette.PressedBackground);
+
+            AssertContrastAtLeast(
+                values[palette.Foreground],
+                values[palette.Background],
+                4.5,
+                $"{palette.Name} normal");
+            AssertContrastAtLeast(
+                values[palette.Foreground],
+                values[palette.HoverBackground],
+                4.5,
+                $"{palette.Name} hover");
+            AssertContrastAtLeast(
+                values[palette.Foreground],
+                values[palette.PressedBackground],
+                4.5,
+                $"{palette.Name} pressed");
+        }
+
+        XElement baseStyle = FindStyle(controls, "ModernButtonBaseStyle");
+        XElement templateTriggers = Assert.Single(
+            baseStyle.Descendants(Presentation + "ControlTemplate.Triggers"));
+        AssertTriggerSetterUsesResource(
+            templateTriggers,
+            "IsEnabled",
+            "False",
+            "Foreground",
+            "DisabledTextBrush");
+        AssertTriggerSetterUsesResource(
+            templateTriggers,
+            "IsEnabled",
+            "False",
+            "Background",
+            "DisabledBackgroundBrush");
+        AssertContrastAtLeast(
+            values["DisabledTextBrush"],
+            values["DisabledBackgroundBrush"],
+            4.5,
+            "Every button disabled");
+
+        XElement connectionStyle = FindStyle(controls, "ConnectionButtonStyle");
+        XElement disconnectTrigger = Assert.Single(
+            connectionStyle.Elements(Presentation + "Style.Triggers")
+                .Elements(Presentation + "DataTrigger"),
+            element => element.Attribute("Binding")?.Value.Contains(
+                    "ConnectionActionText",
+                    StringComparison.Ordinal) == true &&
+                element.Attribute("Value")?.Value == "Disconnect");
+        AssertSetterUsesResource(disconnectTrigger, "Foreground", "OnDangerTextBrush");
+        AssertSetterUsesResource(disconnectTrigger, "Background", "DangerButtonBackgroundBrush");
+        AssertDisconnectStateSetter(connectionStyle, "IsMouseOver", "DangerButtonHoverBrush");
+        AssertDisconnectStateSetter(connectionStyle, "IsPressed", "DangerButtonPressedBrush");
+        AssertContrastAtLeast(
+            values["OnDangerTextBrush"],
+            values["DangerButtonBackgroundBrush"],
+            4.5,
+            "Disconnect normal");
+        AssertContrastAtLeast(
+            values["OnDangerTextBrush"],
+            values["DangerButtonHoverBrush"],
+            4.5,
+            "Disconnect hover");
+        AssertContrastAtLeast(
+            values["OnDangerTextBrush"],
+            values["DangerButtonPressedBrush"],
+            4.5,
+            "Disconnect pressed");
+    }
+
+    [Fact]
     public void ConfigurationValidation_UsesTheContrastSafeErrorTextBrush()
     {
         XDocument configuration = LoadFixture("ConfigurationWindow.xaml");
@@ -79,6 +160,39 @@ public sealed class WpfThemeContractTests
     }
 
     [Fact]
+    public void InputStyles_ConsumeExplicitFocusAndDisabledResources()
+    {
+        XDocument controls = LoadFixture("Controls.xaml");
+
+        foreach (string targetType in new[] { "TextBox", "PasswordBox", "CheckBox" })
+        {
+            XElement style = Assert.Single(
+                controls.Descendants(Presentation + "Style"),
+                element => element.Attribute("TargetType")?.Value == targetType);
+            XElement triggers = Assert.Single(style.Elements(Presentation + "Style.Triggers"));
+
+            AssertTriggerSetterUsesResource(
+                triggers,
+                "IsKeyboardFocused",
+                "True",
+                "BorderBrush",
+                "FocusRingBrush");
+            AssertTriggerSetterUsesResource(
+                triggers,
+                "IsEnabled",
+                "False",
+                "Background",
+                "DisabledBackgroundBrush");
+            AssertTriggerSetterUsesResource(
+                triggers,
+                "IsEnabled",
+                "False",
+                "Foreground",
+                "DisabledTextBrush");
+        }
+    }
+
+    [Fact]
     public void IconDictionary_ProvidesEveryApprovedVectorGeometry()
     {
         string path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "Icons.xaml");
@@ -93,6 +207,38 @@ public sealed class WpfThemeContractTests
             Assert.Equal("PathGeometry", geometry.Name.LocalName);
             Assert.Equal("True", geometry.Attribute(PresentationOptions + "Freeze")?.Value);
         }
+    }
+
+    [Fact]
+    public void ButtonIcons_UseFillSafeGeometryOrAnExplicitVisibleStroke()
+    {
+        XDocument icons = LoadFixture("Icons.xaml");
+        XDocument controls = LoadFixture("Controls.xaml");
+
+        foreach (string key in new[]
+                 {
+                     "ConnectIconGeometry",
+                     "DisconnectIconGeometry",
+                     "ExitIconGeometry",
+                 })
+        {
+            XElement geometry = Assert.Single(
+                icons.Descendants(),
+                element => element.Attribute(X + "Key")?.Value == key);
+            Assert.False(
+                string.IsNullOrWhiteSpace(geometry.Attribute("Figures")?.Value),
+                $"{key} must contain visible geometry figures.");
+        }
+
+        XElement icon = Assert.Single(
+            controls.Descendants(Presentation + "Path"),
+            element => element.Attribute(X + "Name")?.Value == "ButtonIcon");
+        Assert.Equal("{TemplateBinding Tag}", icon.Attribute("Data")?.Value);
+        Assert.Equal("{TemplateBinding Foreground}", icon.Attribute("Fill")?.Value);
+        Assert.Equal("{TemplateBinding Foreground}", icon.Attribute("Stroke")?.Value);
+        Assert.True(
+            double.Parse(icon.Attribute("StrokeThickness")!.Value, System.Globalization.CultureInfo.InvariantCulture) > 0,
+            "Open icon figures require a visible stroke.");
     }
 
     [Fact]
@@ -182,15 +328,28 @@ public sealed class WpfThemeContractTests
     }
 
     [Fact]
-    public void DangerButton_UsesDangerPaletteForHoverAndPressedStates()
+    public void DangerButton_UsesDangerOutlinePaletteForHoverAndPressedStates()
     {
         XDocument controls = LoadFixture("Controls.xaml");
         XElement style = Assert.Single(
             controls.Descendants(Presentation + "Style"),
             element => element.Attribute(X + "Key")?.Value == "DangerButtonStyle");
 
-        AssertStyleStateSetter(style, "IsMouseOver", "DangerButtonHoverBrush");
-        AssertStyleStateSetter(style, "IsPressed", "DangerButtonPressedBrush");
+        AssertStyleStateSetter(style, "IsMouseOver", "DangerOutlineHoverBrush");
+        AssertStyleStateSetter(style, "IsPressed", "DangerOutlinePressedBrush");
+    }
+
+    [Fact]
+    public void ActionStyles_KeepSettingsNeutralLogsBlueAndExitDangerOutlined()
+    {
+        XDocument controls = LoadFixture("Controls.xaml");
+
+        AssertStyleSetter(controls, "SettingsButtonStyle", "Background", "NeutralButtonBackgroundBrush");
+        AssertStyleSetter(controls, "SettingsButtonStyle", "BorderBrush", "NeutralButtonBorderBrush");
+        AssertStyleSetter(controls, "LogsButtonStyle", "Background", "InfoOutlineBackgroundBrush");
+        AssertStyleSetter(controls, "LogsButtonStyle", "BorderBrush", "InfoOutlineBorderBrush");
+        AssertStyleSetter(controls, "DangerButtonStyle", "Background", "DangerOutlineBackgroundBrush");
+        AssertStyleSetter(controls, "DangerButtonStyle", "BorderBrush", "DangerOutlineBorderBrush");
     }
 
     [Fact]
@@ -231,6 +390,24 @@ public sealed class WpfThemeContractTests
         "DialogPrimaryButtonStyle",
         "DialogSecondaryButtonStyle",
     ];
+
+    private static readonly ButtonPalette[] ButtonPalettes =
+    [
+        new("Settings", "SettingsButtonStyle", "PrimaryTextBrush", "NeutralButtonBackgroundBrush", "NeutralButtonHoverBrush", "NeutralButtonPressedBrush"),
+        new("Logs", "LogsButtonStyle", "InfoOutlineTextBrush", "InfoOutlineBackgroundBrush", "InfoOutlineHoverBrush", "InfoOutlinePressedBrush"),
+        new("Connect", "ConnectionButtonStyle", "OnSuccessTextBrush", "SuccessButtonBackgroundBrush", "SuccessButtonHoverBrush", "SuccessButtonPressedBrush"),
+        new("Exit", "DangerButtonStyle", "DangerOutlineTextBrush", "DangerOutlineBackgroundBrush", "DangerOutlineHoverBrush", "DangerOutlinePressedBrush"),
+        new("Dialog primary", "DialogPrimaryButtonStyle", "OnAccentTextBrush", "AccentBrush", "ButtonHoverBackgroundBrush", "ButtonPressedBackgroundBrush"),
+        new("Dialog secondary", "DialogSecondaryButtonStyle", "PrimaryTextBrush", "NeutralButtonBackgroundBrush", "NeutralButtonHoverBrush", "NeutralButtonPressedBrush"),
+    ];
+
+    private sealed record ButtonPalette(
+        string Name,
+        string StyleKey,
+        string Foreground,
+        string Background,
+        string HoverBackground,
+        string PressedBackground);
 
     private static XDocument LoadFixture(string name) =>
         XDocument.Load(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
@@ -306,10 +483,54 @@ public sealed class WpfThemeContractTests
             setter.Attribute("Value")?.Value.Contains(resourceKey, StringComparison.Ordinal) == true);
     }
 
+    private static XElement FindStyle(XDocument controls, string styleKey) =>
+        Assert.Single(
+            controls.Descendants(Presentation + "Style"),
+            element => element.Attribute(X + "Key")?.Value == styleKey);
+
+    private static void AssertSetterUsesResource(
+        XElement style,
+        string property,
+        string resourceKey) =>
+        Assert.Contains(style.Elements(Presentation + "Setter"), setter =>
+            setter.Attribute("Property")?.Value == property &&
+            setter.Attribute("Value")?.Value.Contains(resourceKey, StringComparison.Ordinal) == true);
+
+    private static void AssertTriggerSetterUsesResource(
+        XElement triggers,
+        string triggerProperty,
+        string triggerValue,
+        string setterProperty,
+        string resourceKey)
+    {
+        XElement trigger = Assert.Single(
+            triggers.Elements(Presentation + "Trigger"),
+            element => element.Attribute("Property")?.Value == triggerProperty &&
+                element.Attribute("Value")?.Value == triggerValue);
+        Assert.Contains(trigger.Elements(Presentation + "Setter"), setter =>
+            setter.Attribute("Property")?.Value == setterProperty &&
+            setter.Attribute("Value")?.Value.Contains(resourceKey, StringComparison.Ordinal) == true);
+    }
+
+    private static void AssertStyleSetter(
+        XDocument controls,
+        string styleKey,
+        string property,
+        string resourceKey)
+    {
+        XElement style = Assert.Single(
+            controls.Descendants(Presentation + "Style"),
+            element => element.Attribute(X + "Key")?.Value == styleKey);
+        Assert.Contains(style.Elements(Presentation + "Setter"), setter =>
+            setter.Attribute("Property")?.Value == property &&
+            setter.Attribute("Value")?.Value.Contains(resourceKey, StringComparison.Ordinal) == true);
+    }
+
     private static void AssertContrastAtLeast(
         string foreground,
         string background,
-        double minimumRatio)
+        double minimumRatio,
+        string? description = null)
     {
         double ratio = (RelativeLuminance(foreground) + 0.05) /
             (RelativeLuminance(background) + 0.05);
@@ -320,7 +541,7 @@ public sealed class WpfThemeContractTests
 
         Assert.True(
             ratio >= minimumRatio,
-            $"Expected {foreground} on {background} to meet {minimumRatio:0.0}:1, but was {ratio:0.00}:1.");
+            $"Expected {description ?? "text"} ({foreground} on {background}) to meet {minimumRatio:0.0}:1, but was {ratio:0.00}:1.");
     }
 
     private static double RelativeLuminance(string color)

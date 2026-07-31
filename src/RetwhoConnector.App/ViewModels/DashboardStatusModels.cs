@@ -85,6 +85,34 @@ public static class DashboardStatusMapper
                 "CloudIconGeometry");
         }
 
+        if (transport is
+            BridgeTransportState.Connecting or
+            BridgeTransportState.Reconnecting or
+            BridgeTransportState.Stopping)
+        {
+            return transport switch
+            {
+                BridgeTransportState.Connecting => new DashboardStatusItem(
+                    "Server",
+                    "Connecting",
+                    "Connecting to Retwho",
+                    DashboardSignal.Warning,
+                    "CloudIconGeometry"),
+                BridgeTransportState.Reconnecting => new DashboardStatusItem(
+                    "Server",
+                    "Reconnecting",
+                    "Reconnecting to Retwho",
+                    DashboardSignal.Warning,
+                    "CloudIconGeometry"),
+                _ => new DashboardStatusItem(
+                    "Server",
+                    "Disconnecting",
+                    "Disconnecting from Retwho",
+                    DashboardSignal.Warning,
+                    "CloudIconGeometry"),
+            };
+        }
+
         if (registration == AgentRegistrationState.Failed)
         {
             return new DashboardStatusItem(
@@ -125,24 +153,6 @@ public static class DashboardStatusMapper
                 "Server",
                 "Connected",
                 "Waiting for Retwho registration",
-                DashboardSignal.Warning,
-                "CloudIconGeometry"),
-            BridgeTransportState.Connecting => new(
-                "Server",
-                "Connecting",
-                "Connecting to Retwho",
-                DashboardSignal.Warning,
-                "CloudIconGeometry"),
-            BridgeTransportState.Reconnecting => new(
-                "Server",
-                "Reconnecting",
-                "Reconnecting to Retwho",
-                DashboardSignal.Warning,
-                "CloudIconGeometry"),
-            BridgeTransportState.Stopping => new(
-                "Server",
-                "Disconnecting",
-                "Disconnecting from Retwho",
                 DashboardSignal.Warning,
                 "CloudIconGeometry"),
             _ => new(
