@@ -1,6 +1,6 @@
 [
   {
-    "Name": "Retwho Connector",
+    "Name": "Hybrid Edge Connector Agent",
     "Projects": [
       {
         "Path": "src\\RetwhoConnector.App\\RetwhoConnector.App.csproj",

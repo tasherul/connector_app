@@ -42,6 +42,9 @@
     <None Include="..\..\src\RetwhoConnector.App\ConfigurationWindow.xaml"
           Link="Fixtures\ConfigurationWindow.xaml"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\README.md"
+          Link="Fixtures\README.md"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Update="Fixtures\*.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

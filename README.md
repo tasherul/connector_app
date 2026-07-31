@@ -1,14 +1,32 @@
-# Retwho Connector
+# Hybrid Edge Connector Agent
 
-Retwho Connector is a Windows desktop agent that connects a local HTTPS
-NAXML POS endpoint to the fixed Socket.IO bridge at
+Hybrid Edge Connector Agent is the visible name of the Retwho Connector
+Windows desktop application. It connects a local HTTPS NAXML POS endpoint to
+the fixed Socket.IO bridge at
 `https://connector.retwho.com`. It authenticates locally, keeps the returned
 POS cookie encrypted for the current Windows user, registers as a
 `localhost_agent`, and answers `get_current_data` with fresh `vdatetime` data.
 
-The connector never accesses bridge MySQL, registers licenses, sends POS
+The executable, solution, namespaces, storage folder, and protocol identity
+retain their technical `RetwhoConnector` names for compatibility. The agent
+never accesses bridge MySQL, registers licenses, sends POS
 credentials or cookies to the cloud, or disables bridge certificate
 validation.
+
+## Architecture
+
+- `RetwhoConnector.App` is the WPF dashboard, configuration dialog,
+  notification-area integration, host startup, and dependency wiring.
+- `RetwhoConnector.Core` owns DPAPI settings, POS TLS and NAXML transport,
+  bounded XML/response processing, the Socket.IO bridge, command
+  coordination, sanitization, and the logging pipeline.
+- `RetwhoConnector.Tests` contains isolated fake-credential tests. It never
+  contacts the production POS or cloud.
+
+`ConnectorCoordinator` remains the sole owner of accepted bridge-command
+execution, deadlines, duplicate sharing, cookie refresh, and exactly-once
+acknowledgements. `AgentOrchestrationService` is the UI-facing lifecycle
+façade.
 
 ## Requirements
 
@@ -26,7 +44,7 @@ validation.
 1. On Windows, double-click `RetwhoConnector.sln`.
 2. If Visual Studio reports missing components, accept the prompt generated
    from `.vsconfig` to install the **.NET desktop development** workload.
-3. In the launch-profile list, select **Retwho Connector**. The checked-in
+3. In the launch-profile list, select **Hybrid Edge Connector Agent**. The checked-in
    `RetwhoConnector.slnLaunch` profile starts only
    `RetwhoConnector.App`.
 4. Leave **Debug** and **Any CPU** selected for normal development.
@@ -47,18 +65,43 @@ dotnet test RetwhoConnector.sln -c Release --no-build
 
 ## First-run setup
 
-1. Enter the Retwho license key.
-2. Enter only the local POS HTTPS origin, for example
+All configuration fields are empty on first run.
+
+1. Start the application and select **Settings**.
+2. Enter the Retwho license key.
+3. In **HTTPS origin**, enter only the local POS URL, for example
    `https://10.1.10.250`. Paths, query strings, fragments, HTTP URLs, and URLs
    containing user information are rejected.
-3. Enter the POS username and password.
-4. If the POS certificate is self-signed, select **Trust POS Certificate**,
-   verify the displayed SHA-256 fingerprint with the POS administrator, and
-   approve it.
-5. Select **Test POS Login**.
-6. Select **Save & Connect**.
+4. Enter the POS username and password.
+5. Select **Save & Test Connection**.
+6. If the credential-free TLS inspection finds a certificate that Windows
+   does not trust, independently verify the displayed SHA-256 fingerprint
+   with the POS administrator, then approve it.
+
+The save workflow validates the draft, inspects certificate trust, tests POS
+login, encrypts the settings and returned cookie atomically, and then
+connects/registers the bridge. If validation, certificate approval, or POS
+login fails, the old saved settings remain unchanged. If POS login and
+encrypted save succeed but the cloud is unavailable, the valid saved POS
+configuration remains available for a later **Connect**.
 
 The bridge URL is fixed and is intentionally not editable.
+
+## Status dashboard
+
+The dashboard has four accessible status cards:
+
+| Card | Typical meanings |
+|---|---|
+| Config | **Configured**, **Missing configuration**, or **Invalid** |
+| `connector.retwho.com` | **Connected**, **Connecting**, **Reconnecting**, **Offline**, **Authentication failed**, or **Session replaced** |
+| Agent | **Active** only when registered; otherwise **Idle**, **Inactive**, or **Error** |
+| Logs | **Healthy**, **Degraded** with a dropped-entry count, or **Stopped** |
+
+Green indicates success, yellow indicates session/warning or transitional
+states, blue activity rows identify actions/acknowledgements, red indicates
+errors/timeouts/authentication failures, and neutral rows are informational.
+The terminal timestamps are converted from stored UTC to local `HH:mm:ss`.
 
 ## POS login and cookie handling
 
@@ -220,17 +263,53 @@ prohibited. Offsets must be integers and `dstApplies` must be `0` or `1`.
 
 ## Logs and local activity
 
-Rolling logs are written to:
+Every entry is sanitized before it enters the bounded channel, so raw secret
+data cannot reach a sink. The terminal keeps exactly the newest 1,000 safe
+entries. File logs are written to:
 
 ```text
 %LocalAppData%\RetwhoConnector\Logs\
 ```
 
-Each file is limited to 10 MiB and ten files are retained. Logs contain safe
-operation names, states, durations, status codes, and redacted error details.
-They never contain POS passwords, cookies, full licenses, login request
-URIs/bodies, raw login XML, settings objects, or sensitive header values.
-The UI keeps the newest 200 safe activity messages.
+Daily `agent-YYYY-MM-DD.log` files roll at 10 MiB and files older than 14 days
+are deleted. Sanitized historical entries are also stored in SQLite at:
+
+```text
+%LocalAppData%\RetwhoConnector\Data\agent.db
+```
+
+SQLite uses WAL mode, batches inserts, keeps 30 days, and trims to at most
+100,000 rows. It stores logs only; encrypted configuration remains exclusively
+in `settings.json`. Logs contain safe operation names, states, durations,
+status codes, and redacted error details. They never contain POS usernames or
+passwords, cookies, full licenses, credential-bearing request URIs/bodies,
+raw XML, settings objects, ciphertext, authorization values, or sensitive
+header values.
+
+The safe POS response-header metadata is status code, content type, declared
+length, content encodings, date, server, retry delay, and Boolean presence of
+`Set-Cookie` or `WWW-Authenticate`. Status code controls HTTP
+classification; declared length is checked before reading; content encodings
+control bounded reverse-order decompression; and retry metadata is retained
+only as a safe bounded value. Cookie-expiry retry is driven by HTTP/XML
+session classification, not by an unsafe header value.
+
+## Notification-area behavior
+
+Minimizing the main window or selecting its close button hides it while POS,
+cloud, and logging work continue. Use the notification-area icon to:
+
+- double-click or select **Show** to restore the dashboard;
+- open **Settings**;
+- **Connect** or **Disconnect**; or
+- select **Exit** for a real shutdown.
+
+Only **Exit** stops command acceptance, disconnects Socket.IO, drains queued
+logs for up to five seconds, removes the tray icon, and shuts down the host.
+The secret-free marker at
+`%LocalAppData%\RetwhoConnector\agent.running` is removed only after a clean
+shutdown. If it remains after a crash or forced termination, the next launch
+adds a safe unclean-exit warning to the activity log.
 
 ## Error reference
 
@@ -253,10 +332,10 @@ The UI keeps the newest 200 safe activity messages.
 
 ## Clear encrypted settings
 
-Select **Clear Saved Settings** and confirm. The connector disconnects,
-deletes only its known settings file, clears the form, and returns to the
-unconfigured state. A corrupt settings file is not silently overwritten;
-back it up from the path above before clearing it.
+Open **Settings**, select **Clear Saved Settings**, and confirm. The connector
+disconnects, deletes only its known settings file, clears the dialog, and
+returns to the unconfigured state. A corrupt settings file is not silently
+overwritten; back it up from the path above before clearing it.
 
 ## Run tests
 
@@ -310,20 +389,33 @@ proven.
 - **Timeout:** verify local routing/firewall latency; the complete command,
   including one session refresh, has an eight-second internal deadline.
 - **Repeated replacement:** stop other connectors using the same license.
+- **Window disappeared after close/minimize:** the agent is still running.
+  Double-click its notification-area icon. Select **Exit** there when a real
+  shutdown is required.
+- **Logging card is degraded:** open the logs folder and check disk space and
+  permissions for the `Logs` and `Data` folders. The dropped count never
+  contains payload data.
+- **Previous shutdown warning:** Windows or the process ended before the host
+  drained its workers. A normal notification-area **Exit** clears the safe
+  startup marker.
 
 ## English quick start
 
-Enter the active license, local POS HTTPS origin, username, and password.
-Verify and trust a self-signed POS fingerprint, test POS login, then select
-**Save & Connect**. Wait until both Bridge Transport shows **Connected** and
-Agent Registration shows **Registered**.
+Select **Settings**, enter the active license, local POS HTTPS origin,
+username, and password, then select **Save & Test Connection**. If prompted,
+verify the self-signed POS fingerprint with the administrator before
+approval. Wait until the cloud card shows **Connected** and the agent card
+shows **Active**. Closing or minimizing the window keeps the agent running in
+the notification area; use **Exit** there to stop it.
 
 ## বাংলা দ্রুত শুরু
 
 সক্রিয় লাইসেন্স কী, লোকাল POS-এর HTTPS ঠিকানা, ইউজারনেম এবং পাসওয়ার্ড
-লিখুন। POS সার্টিফিকেট self-signed হলে POS অ্যাডমিনের সাথে SHA-256
-fingerprint মিলিয়ে **Trust POS Certificate** চাপুন। তারপর **Test POS
-Login** এবং **Save & Connect** চাপুন। Bridge Transport-এ **Connected** এবং
-Agent Registration-এ **Registered**—দুইটি অবস্থা দেখা গেলে সংযোগ প্রস্তুত।
+লিখতে প্রথমে **Settings** চাপুন। তারপর **Save & Test Connection** চাপুন।
+POS সার্টিফিকেট self-signed হলে POS অ্যাডমিনের সাথে SHA-256 fingerprint
+মিলিয়ে অনুমোদন দিন। Cloud status-এ **Connected** এবং Agent status-এ
+**Active**—দুইটি অবস্থা দেখা গেলে সংযোগ প্রস্তুত। উইন্ডো minimize বা close
+করলে agent notification area-তে চলতে থাকবে; সম্পূর্ণ বন্ধ করতে tray menu
+থেকে **Exit** চাপুন।
 পাসওয়ার্ড, cookie বা পূর্ণ license key কখনও লগ বা সহায়তা বার্তায় দেবেন
 না।
