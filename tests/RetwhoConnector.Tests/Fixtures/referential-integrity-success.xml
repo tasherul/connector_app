@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<domain:referentialIntegrity xmlns:domain="urn:synthetic:referential">
+  <site>FAKE-SITE-17</site>
+  <fees maxRecords="25" maxFeesPerItem="3">
+    <fee sysid="fee-1" name="FAKE FEE" domain:feeType="flat">
+      <amount>1.25</amount>
+    </fee>
+  </fees>
+  <taxRates maxRecords="10">
+    <domain:taxRate sysid="tax-1" name="FAKE TAX" />
+  </taxRates>
+  <departments maxRecords="20">
+    <department sysid="dept-1" name="FAKE FUEL" isFuel="1" prodCode="pc-1" />
+    <department sysid="dept-2" name="FAKE GROCERY" isFuel="0" />
+  </departments>
+  <prodCodes maxRecords="20">
+    <prodCode sysid="pc-1" name="FAKE FUEL CODE" isFuel="1" />
+    <prodCode sysid="pc-2" name="FAKE GROCERY CODE" isFuel="0" />
+  </prodCodes>
+  <ageValidations maxRecords="8">
+    <ageValidation sysid="age-1" name="FAKE AGE 18" />
+    <ageValidation sysid="age-2" name="FAKE AGE 21" />
+  </ageValidations>
+  <blueLaws maxRecords="0" />
+</domain:referentialIntegrity>
