@@ -167,8 +167,10 @@ reconnection.
    registry.
 3. It starts one shared eight-second deadline.
 4. It sends a fresh POS `vdatetime` request.
-5. If the cookie is expired, it performs one `validate`, encrypts the new
-   cookie, and retries `vdatetime` once.
+5. If HTTP 401/403, the existing bounded expiry heuristic, or the exact
+   Sapphire fault `CGIPortal.LoginRequired` reports an expired session, it
+   performs one `validate` login and one `vdatetime` retry. The replacement
+   XML cookie is encrypted before the retry result is acknowledged.
 6. It parses XML, maps it to camelCase JSON, checks the one-MiB bridge limit,
    and acknowledges exactly once.
 
@@ -294,6 +296,16 @@ control bounded reverse-order decompression; and retry metadata is retained
 only as a safe bounded value. Cookie-expiry retry is driven by HTTP/XML
 session classification, not by an unsafe header value.
 
+For every POS operation, diagnostics record only the command, method, HTTP
+version, declared byte length, certificate-pin presence, duration, safe
+response metadata, response character count, XML root name, and the
+allowlisted fault fields `faultCode`, `faultString`, and `message`. The agent
+does not log raw request or response payloads. In particular, it never writes
+the credential-bearing request URI/body, cookie, password, username, full
+license, unrestricted XML, or an exception stack trace. Microsoft
+`HttpClientFactory` packet/stack logging is disabled for the POS client so
+these bounded records are the only HTTP diagnostics routed to the sinks.
+
 ## Notification-area behavior
 
 Minimizing the main window or selecting its close button hides it while POS,
@@ -379,7 +391,10 @@ proven.
 - **Certificate approval required:** compare the SHA-256 fingerprint with the
   POS administrator; do not approve an unknown certificate.
 - **Certificate changed:** verify whether the POS certificate was
-  intentionally replaced before approving it.
+  intentionally replaced before approving it. When
+  `POS_CERTIFICATE_CHANGED` appears, reopen **Settings**, run
+  **Save & Test Connection**, independently compare the new SHA-256
+  fingerprint, and approve it only if expected.
 - **Login failure:** verify the HTTPS origin and POS credentials. Never paste
   credentials into logs or issue reports.
 - **Unsupported encoding:** capture only safe response metadata and ask the
@@ -398,6 +413,10 @@ proven.
 - **Previous shutdown warning:** Windows or the process ended before the host
   drained its workers. A normal notification-area **Exit** clears the safe
   startup marker.
+- **`CGIPortal.LoginRequired`:** the saved XML cookie expired. The agent
+  performs one login, saves the encrypted replacement, and retries
+  `vdatetime` once. If the replacement is also rejected, it reports
+  `POS_AUTH_EXPIRED` without another loop.
 
 ## English quick start
 

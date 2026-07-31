@@ -49,4 +49,34 @@ public sealed class DocumentationTests
             readme,
             StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Readme_DocumentsSafeSapphireSessionRecoveryDiagnostics()
+    {
+        string readme = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "README.md"));
+
+        Assert.Contains(
+            "CGIPortal.LoginRequired",
+            readme,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "one `validate` login and one `vdatetime` retry",
+            readme,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "`faultCode`, `faultString`, and `message`",
+            readme,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "does not log raw request or response payloads",
+            readme,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "reopen **Settings**",
+            readme,
+            StringComparison.Ordinal);
+    }
 }
