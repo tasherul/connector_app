@@ -3,6 +3,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>RetwhoConnector</AssemblyName>
     <RootNamespace>RetwhoConnector.App</RootNamespace>
   </PropertyGroup>

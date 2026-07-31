@@ -1,5 +1,6 @@
 using System.Windows;
 using RetwhoConnector.Core.Models;
+using WpfMessageBox = System.Windows.MessageBox;
 
 namespace RetwhoConnector.App.Services;
 
@@ -15,7 +16,7 @@ public sealed class UserDialogService : IUserDialogService
             $"Valid to: {certificate.ValidToUtc:u}\n" +
             $"SHA-256: {certificate.Sha256Fingerprint}\n\n" +
             "Trust this exact certificate for this POS address?";
-        return MessageBox.Show(
+        return WpfMessageBox.Show(
             message,
             "Trust POS Certificate",
             MessageBoxButton.YesNo,
@@ -24,7 +25,7 @@ public sealed class UserDialogService : IUserDialogService
     }
 
     public bool ConfirmClearSettings() =>
-        MessageBox.Show(
+        WpfMessageBox.Show(
             "Clear all encrypted connector settings and disconnect?",
             "Clear Saved Settings",
             MessageBoxButton.YesNo,
@@ -32,7 +33,7 @@ public sealed class UserDialogService : IUserDialogService
             MessageBoxResult.No) == MessageBoxResult.Yes;
 
     public void ShowError(string message) =>
-        MessageBox.Show(
+        WpfMessageBox.Show(
             message,
             "Retwho Connector",
             MessageBoxButton.OK,

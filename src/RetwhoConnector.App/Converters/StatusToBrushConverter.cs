@@ -2,6 +2,9 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
+using WpfApplication = System.Windows.Application;
+using WpfBrush = System.Windows.Media.Brush;
+using WpfBrushes = System.Windows.Media.Brushes;
 
 namespace RetwhoConnector.App.Converters;
 
@@ -33,8 +36,8 @@ public sealed class StatusToBrushConverter : IValueConverter
                       status.Contains("Replaced", StringComparison.OrdinalIgnoreCase)
                         ? "ErrorBrush"
                         : "NeutralBrush";
-        return Application.Current.TryFindResource(key) as Brush
-            ?? Brushes.Gray;
+        return WpfApplication.Current.TryFindResource(key) as WpfBrush
+            ?? WpfBrushes.Gray;
     }
 
     public object ConvertBack(

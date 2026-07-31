@@ -69,6 +69,19 @@ public interface IActionExecutionRegistry
         CancellationToken cancellationToken);
 }
 
+public interface IAgentLog
+{
+    LogPipelineHealth CurrentHealth { get; }
+    event EventHandler<LogPipelineHealth>? HealthChanged;
+
+    bool TryWrite(
+        AgentLogLevel level,
+        AgentLogCategory category,
+        string message,
+        string? details = null,
+        string? correlationId = null);
+}
+
 public interface IPosResponseReader
 {
     Task<PosHttpResponse> ReadAsync(

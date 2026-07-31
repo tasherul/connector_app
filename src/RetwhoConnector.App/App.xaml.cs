@@ -10,10 +10,11 @@ using RetwhoConnector.Core.Abstractions;
 using RetwhoConnector.Core.Configuration;
 using RetwhoConnector.Core.Services;
 using Serilog;
+using WpfMessageBox = System.Windows.MessageBox;
 
 namespace RetwhoConnector.App;
 
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private readonly CancellationTokenSource _applicationSource = new();
     private IHost? _host;
@@ -29,7 +30,7 @@ public partial class App : Application
             createdNew: out bool createdNew);
         if (!createdNew)
         {
-            MessageBox.Show(
+            WpfMessageBox.Show(
                 "Retwho Connector is already running.",
                 "Retwho Connector",
                 MessageBoxButton.OK,
@@ -87,7 +88,7 @@ public partial class App : Application
                 exception.GetType().Name,
                 exceptionTarget,
                 errorCode);
-            MessageBox.Show(
+            WpfMessageBox.Show(
                 $"Retwho Connector could not start while {startupStage}.\n\n" +
                 $"Error: {exception.GetType().Name} ({errorCode})\n" +
                 "See the local log for the safe diagnostic target.",
