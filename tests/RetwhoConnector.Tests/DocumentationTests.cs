@@ -2,6 +2,74 @@ namespace RetwhoConnector.Tests;
 
 public sealed class DocumentationTests
 {
+    private static string ReadWebAppGuide() =>
+        File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "WEB_APP_SOCKET_INTEGRATION_GUIDE.md"));
+
+    [Fact]
+    public void WebAppGuide_DocumentsFixedSocketBoundaryAndAcknowledgements()
+    {
+        string guide = ReadWebAppGuide();
+
+        Assert.StartsWith("# Web-App Socket Integration Guide", guide, StringComparison.Ordinal);
+        Assert.Contains("https://connector.retwho.com", guide, StringComparison.Ordinal);
+        Assert.Contains("`/socket.io`", guide, StringComparison.Ordinal);
+        Assert.Contains("`execute_local_action`", guide, StringComparison.Ordinal);
+        Assert.Contains("`register_client`", guide, StringComparison.Ordinal);
+        Assert.Contains("`localhost_agent`", guide, StringComparison.Ordinal);
+        Assert.Contains("`session_replaced`", guide, StringComparison.Ordinal);
+        Assert.Contains("exactly once", guide, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("10 seconds", guide, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("one MiB", guide, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not a deployed Retwho endpoint", guide, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void WebAppGuide_DocumentsEveryActionAndPosRequestBoundary()
+    {
+        string guide = ReadWebAppGuide();
+
+        foreach (string command in new[]
+                 {
+                     "get_current_data",
+                     "get_plu_page",
+                     "get_plu",
+                     "get_referential_integrity",
+                 })
+        {
+            Assert.Contains($"`{command}`", guide, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("pageSize` defaults to `100", guide, StringComparison.Ordinal);
+        Assert.Contains("upcModifier` defaults to `000", guide, StringComparison.Ordinal);
+        Assert.Contains(
+            "prodCodes,departments,ageValidations,taxRates,blueLaws,fees",
+            guide,
+            StringComparison.Ordinal);
+        Assert.Contains("vdatetime", guide, StringComparison.Ordinal);
+        Assert.Contains("vPLUs", guide, StringComparison.Ordinal);
+        Assert.Contains("vrefinteg", guide, StringComparison.Ordinal);
+        Assert.Contains("connector-to-POS", guide, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("browser must never", guide, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void WebAppGuide_DocumentsTypeScriptDispatchRecoveryAndPagination()
+    {
+        string guide = ReadWebAppGuide();
+
+        Assert.Contains("executeAgentAction", guide, StringComparison.Ordinal);
+        Assert.Contains("socket.timeout(10_000)", guide, StringComparison.Ordinal);
+        Assert.Contains("for (let page = 1;", guide, StringComparison.Ordinal);
+        Assert.Contains("one `validate` login", guide, StringComparison.Ordinal);
+        Assert.Contains("one retry of the original POS action", guide, StringComparison.Ordinal);
+        Assert.Contains("POS_AUTH_EXPIRED", guide, StringComparison.Ordinal);
+        Assert.Contains("agent_data_push", guide, StringComparison.Ordinal);
+        Assert.Contains("not automatically", guide, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public void Readme_DocumentsDashboardTrayAndAllLogStores()
     {
