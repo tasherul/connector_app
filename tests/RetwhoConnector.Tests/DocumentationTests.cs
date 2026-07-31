@@ -27,6 +27,58 @@ public sealed class DocumentationTests
     }
 
     [Fact]
+    public void WebAppGuide_DocumentsStructuralSocketAndErrorContracts()
+    {
+        string guide = ReadWebAppGuide();
+
+        Assert.Contains("{ \"ok\": true, \"result\": {} }", guide, StringComparison.Ordinal);
+        Assert.Contains(
+            "{ \"ok\": false, \"error\": \"ERROR_CODE: Safe description.\" }",
+            guide,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "The result or error property not used is omitted.",
+            guide,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "WebSocket-only (Engine.IO v4, no auto-upgrade)",
+            guide,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "The connector work deadline is 8 seconds.",
+            guide,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "full successful acknowledgement must remain below one MiB",
+            guide,
+            StringComparison.OrdinalIgnoreCase);
+
+        foreach (string prefix in new[]
+                 {
+                     "INVALID_ACTION",
+                     "UNSUPPORTED_COMMAND",
+                     "NOT_REGISTERED",
+                     "SETTINGS_MISSING",
+                     "SETTINGS_SAVE_FAILED",
+                     "POS_AUTH_EXPIRED",
+                     "POS_LOGIN_FAILED",
+                     "POS_TIMEOUT",
+                     "POS_CERTIFICATE_CHANGED",
+                     "POS_CERTIFICATE_UNTRUSTED",
+                     "POS_HTTP_ERROR",
+                     "POS_UNSUPPORTED_CONTENT_ENCODING",
+                     "POS_INVALID_XML",
+                     "POS_INVALID_RESPONSE",
+                     "PAYLOAD_TOO_LARGE",
+                     "COMMAND_CANCELLED",
+                     "INTERNAL_ERROR",
+                 })
+        {
+            Assert.Contains($"`{prefix}`", guide, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void WebAppGuide_DocumentsEveryActionAndPosRequestBoundary()
     {
         string guide = ReadWebAppGuide();
@@ -56,18 +108,70 @@ public sealed class DocumentationTests
     }
 
     [Fact]
+    public void WebAppGuide_LabelsEveryDocumentedConnectorToPosRequest()
+    {
+        string guide = ReadWebAppGuide();
+
+        foreach (string request in new[]
+                 {
+                     "POST https://POS_HOST/cgi-bin/NAXML?cmd=vdatetime&cookie=FAKE_COOKIE",
+                     "POST https://POS_HOST/cgi-bin/NAXML?cmd=vPLUs&cookie=FAKE_COOKIE",
+                     "POST https://POS_HOST/cgi-bin/NAXML?cmd=vPLUs&cookie=FAKE_COOKIE",
+                     "POST https://POS_HOST/cgi-bin/NAXML?cmd=vrefinteg&dataset=prodCodes,departments,ageValidations,taxRates,blueLaws,fees&cookie=FAKE_COOKIE",
+                     "POST https://POS_HOST/cgi-bin/NAXML?cmd=validate&user=FAKE_USER&passwd=REDACTED",
+                 })
+        {
+            Assert.Contains(
+                $"Connector request reference — **connector-to-POS only—not browser-callable**:\n\n```text\n{request}\n```",
+                guide,
+                StringComparison.Ordinal);
+        }
+
+        foreach (string limit in new[]
+                 {
+                     "\"taxRates\": { \"maxRecords\": 10 }",
+                     "\"departments\": { \"maxRecords\": 20 }",
+                     "\"prodCodes\": { \"maxRecords\": 30 }",
+                     "\"ageValidations\": { \"maxRecords\": 8 }",
+                     "\"blueLaws\": { \"maxRecords\": 0 }",
+                     "\"fees\": { \"maxRecords\": 25, \"maxFeesPerItem\": 3 }",
+                 })
+        {
+            Assert.Contains(limit, guide, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void WebAppGuide_DocumentsTypeScriptDispatchRecoveryAndPagination()
     {
         string guide = ReadWebAppGuide();
 
         Assert.Contains("executeAgentAction", guide, StringComparison.Ordinal);
+        Assert.Contains(
+            "new Promise<AgentAck<T>>((resolve, reject) => {",
+            guide,
+            StringComparison.Ordinal);
         Assert.Contains("socket.timeout(10_000)", guide, StringComparison.Ordinal);
         Assert.Contains("for (let page = 1;", guide, StringComparison.Ordinal);
+        Assert.Contains("actionId: crypto.randomUUID(),", guide, StringComparison.Ordinal);
+        Assert.Contains("a distinct action ID per page.", guide, StringComparison.Ordinal);
+        Assert.Contains(
+            "retry that same logical page with its original action ID.",
+            guide,
+            StringComparison.Ordinal);
         Assert.Contains("one `validate` login", guide, StringComparison.Ordinal);
         Assert.Contains("one retry of the original POS action", guide, StringComparison.Ordinal);
         Assert.Contains("POS_AUTH_EXPIRED", guide, StringComparison.Ordinal);
         Assert.Contains("agent_data_push", guide, StringComparison.Ordinal);
         Assert.Contains("not automatically", guide, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "do not forward `rawXml`, POS origins, cookies, request details, or diagnostics to the browser.",
+            guide,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "Never log `rawXml`, POS credentials, cookies, full licenses, or internal connector identities.",
+            guide,
+            StringComparison.Ordinal);
     }
 
     [Fact]

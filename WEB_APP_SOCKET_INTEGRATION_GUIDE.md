@@ -31,10 +31,10 @@ encrypted POS cookie, and talks to the local HTTPS/NAXML POS.
 
 ## Fixed Socket.IO boundary
 
-The connector connects by WebSocket (Engine.IO v4, no auto-upgrade) to the
-fixed bridge URL `https://connector.retwho.com` with the Socket.IO path
-`/socket.io`. On connection it emits `register_client` with its license in
-socket authentication and this registration payload:
+The connector connects by a WebSocket-only (Engine.IO v4, no auto-upgrade)
+transport to the fixed bridge URL `https://connector.retwho.com` with the
+Socket.IO path `/socket.io`. On connection it emits `register_client` with its
+license in socket authentication and this registration payload:
 
 ```json
 {
@@ -65,10 +65,10 @@ The bridge sends each command as `execute_local_action` with this exact shape:
 
 `actionId` is the 1-128 character idempotency key. `params` must be a JSON
 object, and `timestamp` is required. The connector shares duplicate action IDs
-as one execution and delivers one acknowledgement exactly once. It applies an
-eight-second connector deadline; the cloud Socket.IO acknowledgement boundary
-is 10 seconds. A successful acknowledgement, serialized as JSON, must remain
-strictly below one MiB (1,048,576 bytes).
+as one execution and delivers one acknowledgement exactly once.
+The connector work deadline is 8 seconds. The cloud Socket.IO acknowledgement
+boundary is 10 seconds. The full successful acknowledgement must remain below one MiB
+(1,048,576 bytes) when serialized as JSON.
 
 Success and failure shapes are respectively:
 
@@ -89,9 +89,10 @@ do not turn it into a second POS operation by minting an ID prematurely.
 
 Use a trusted socket from the bridge registry, never a socket ID supplied by a
 browser. The following is framework-light server-side code; adapt the import
-and socket typing to the installed `socket.io` version. Socket.IO's timeout
-acknowledgement form is documented by the official
-[Socket.IO emitting-events documentation](https://socket.io/docs/v4/emitting-events/#with-timeout).
+and socket typing to the installed `socket.io` version. For the timeout
+acknowledgement form, see the official Socket.IO reference:
+
+[Socket.IO emitting-events documentation](https://socket.io/docs/v4/emitting-events/#with-timeout)
 
 ```ts
 import type { Socket } from "socket.io";
@@ -117,7 +118,7 @@ async function executeAgentAction<T>(
   socket: RegisteredAgentSocket,
   action: AgentAction,
 ): Promise<AgentAck<T>> {
-  return await new Promise((resolve, reject) => {
+  return await new Promise<AgentAck<T>>((resolve, reject) => {
     socket.timeout(10_000).emit(
       "execute_local_action",
       action,
@@ -148,9 +149,11 @@ lookup key is an internal connector/license identity.
 The connector serializes its C# result contracts using `ConnectorJson.Options`:
 camelCase names, case-insensitive reads, and omission of null fields. Preserve
 identifiers as strings. A web backend should allow-list fields for browser
-responses. In particular, `VdatetimeResult` currently includes `rawXml`; do
-not forward `rawXml`, POS origins, cookies, request details, or diagnostics to
-the browser.
+responses. In particular, `VdatetimeResult` currently includes `rawXml`.
+Browser responses must omit `rawXml`, POS origins, cookies, request details,
+and diagnostics.
+
+Do not forward `rawXml`, POS origins, cookies, request details, or diagnostics to the browser.
 
 ```ts
 type TimeZoneInfo = {
@@ -424,8 +427,7 @@ Connector request reference — **connector-to-POS only—not browser-callable**
 POST https://POS_HOST/cgi-bin/NAXML?cmd=vrefinteg&dataset=prodCodes,departments,ageValidations,taxRates,blueLaws,fees&cookie=FAKE_COOKIE
 ```
 
-The connector's recovery login is also **connector-to-POS only—not
-browser-callable**:
+Connector request reference — **connector-to-POS only—not browser-callable**:
 
 ```text
 POST https://POS_HOST/cgi-bin/NAXML?cmd=validate&user=FAKE_USER&passwd=REDACTED
@@ -434,9 +436,8 @@ POST https://POS_HOST/cgi-bin/NAXML?cmd=validate&user=FAKE_USER&passwd=REDACTED
 ## Backend-owned PLU pagination
 
 The backend, not the browser or connector, owns pagination. One bridge action
-retrieves exactly one POS page, so create a distinct action ID per page. If a
-page's delivery outcome is unknown, retry that same logical page with its
-original action ID.
+retrieves exactly one POS page, so create a distinct action ID per page. For
+unknown delivery, retry that same logical page with its original action ID.
 
 ```ts
 async function getAllPluPages(socket: RegisteredAgentSocket) {
@@ -500,8 +501,9 @@ must branch only on the prefix before the first colon.
 ## Security checklist
 
 - Authorize every browser request before registered-agent lookup.
-- Keep POS credentials, cookies, full licenses, raw XML, and internal socket
-  identities out of browser responses, URLs, analytics, and logs.
+- Browser responses must omit `rawXml`, POS origins, cookies, request details,
+  and diagnostics.
+- Never log `rawXml`, POS credentials, cookies, full licenses, or internal connector identities.
 - Use only the fixed `https://connector.retwho.com` bridge and `/socket.io`
   path for connector traffic.
 - Treat the POS request references above as connector-to-POS only—not
