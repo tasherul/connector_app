@@ -70,6 +70,57 @@ public sealed class ExecutionAndBridgeTests
     }
 
     [Fact]
+    public async Task Coordinator_SecondLoginRequiredDoesNotStartAnotherRefresh()
+    {
+        var settings = CreateSettings() with
+        {
+            PosCookie = "FAKE_EXPIRED_COOKIE",
+        };
+        var settingsService = new FakeSettingsService(settings);
+        var authentication = new FakeAuthenticationService();
+        var data = new FakeDataService
+        {
+            AlwaysFailWithAuthError = true,
+        };
+        var bridge = new FakeBridgeClient { Registered = true };
+        var coordinator = new ConnectorCoordinator(
+            settingsService,
+            authentication,
+            data,
+            bridge,
+            new ActionExecutionRegistry(
+                TimeProvider.System,
+                CancellationToken.None),
+            new BridgeOptions(),
+            TimeProvider.System,
+            NullLogger<ConnectorCoordinator>.Instance,
+            CancellationToken.None);
+        BridgeAcknowledgement? sent = null;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            });
+
+        await coordinator.HandleActionAsync(
+            context,
+            CancellationToken.None);
+
+        Assert.NotNull(sent);
+        Assert.False(sent.Ok);
+        Assert.StartsWith(
+            "POS_AUTH_EXPIRED:",
+            sent.Error,
+            StringComparison.Ordinal);
+        Assert.Equal(1, authentication.Calls);
+        Assert.Equal(2, data.Calls);
+        Assert.Equal(
+            "FAKE_NEW_COOKIE",
+            settingsService.Settings!.PosCookie);
+    }
+
+    [Fact]
     public async Task Coordinator_AutoConnectFailureKeepsStartupUsable()
     {
         var settings = CreateSettings() with { AutoConnect = true };
@@ -283,6 +334,7 @@ public sealed class ExecutionAndBridgeTests
     {
         public int Calls { get; private set; }
         public bool FailFirstWithAuthError { get; init; }
+        public bool AlwaysFailWithAuthError { get; init; }
 
         public Task<VdatetimeResult> GetVdatetimeAsync(
             ConnectorSettings settings,
@@ -290,7 +342,8 @@ public sealed class ExecutionAndBridgeTests
             CancellationToken cancellationToken)
         {
             Calls++;
-            if (FailFirstWithAuthError && Calls == 1)
+            if (AlwaysFailWithAuthError ||
+                (FailFirstWithAuthError && Calls == 1))
             {
                 throw new PosAuthenticationException(
                     "POS_AUTH_EXPIRED",
