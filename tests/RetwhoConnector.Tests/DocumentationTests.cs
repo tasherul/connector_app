@@ -138,4 +138,46 @@ public sealed class DocumentationTests
             readme,
             StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Readme_DocumentsModernDashboardAccessibilityAndWindowsAcceptance()
+    {
+        string readme = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "README.md"));
+
+        Assert.Contains(
+            "compact status rail",
+            readme,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "four columns",
+            readme,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "two-by-two",
+            readme,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "keyboard focus",
+            readme,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "high-contrast",
+            readme,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "screenshots",
+            readme,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "Windows-only STA smoke tests",
+            readme,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "unverified on non-Windows",
+            readme,
+            StringComparison.OrdinalIgnoreCase);
+    }
 }

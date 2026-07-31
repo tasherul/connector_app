@@ -170,7 +170,7 @@
         </Grid>
 
         <Border Grid.Row="1"
-                x:Name="ConnectorStatusRail"
+                x:Name="StatusRail"
                 Background="{DynamicResource SurfaceRaisedBrush}"
                 BorderBrush="{DynamicResource BorderBrush}"
                 BorderThickness="1"
@@ -178,7 +178,8 @@
                 Margin="0,22,0,16"
                 Padding="4"
                 AutomationProperties.Name="Connector status rail container">
-            <UniformGrid Columns="{Binding ActualWidth,
+            <UniformGrid x:Name="StatusRailGrid"
+                         Columns="{Binding ActualWidth,
                                           RelativeSource={RelativeSource AncestorType={x:Type Window}},
                                           Converter={StaticResource WidthToStatusColumnCount}}">
                 <Border Style="{StaticResource ConfigurationRailSegmentStyle}"

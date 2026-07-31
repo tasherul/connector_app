@@ -89,7 +89,7 @@ The bridge URL is fixed and is intentionally not editable.
 
 ## Status dashboard
 
-The dashboard has four accessible status cards:
+The dashboard has a compact status rail with four accessible segments:
 
 | Card | Typical meanings |
 |---|---|
@@ -102,6 +102,42 @@ Green indicates success, yellow indicates session/warning or transitional
 states, blue activity rows identify actions/acknowledgements, red indicates
 errors/timeouts/authentication failures, and neutral rows are informational.
 The terminal timestamps are converted from stored UTC to local `HH:mm:ss`.
+
+The rail is four columns wide at normal desktop widths and switches to a
+two-by-two layout below the compact breakpoint. Each segment always includes
+an icon, status text, description, and automation name in addition to its
+green/yellow/red signal light: color is never the only status indicator.
+
+All dashboard and dialog actions provide distinct normal, hover, pressed,
+keyboard focus, and disabled states. Keyboard users should use `Tab` and
+`Shift+Tab` to move through actions and verify the visible focus ring before
+activating a button with `Enter` or `Space`. High-contrast users should enable
+their Windows contrast theme and confirm that status text, input labels,
+validation messages, button text, and the keyboard focus ring remain visible;
+the text and icons retain their meaning when color presentation changes.
+
+## Windows visual acceptance and screenshots
+
+The Windows-only STA smoke tests construct and lay out both WPF windows with
+fully fake services; they do not open sockets, files, databases, or dialogs.
+On a Windows development machine, run:
+
+```powershell
+dotnet test tests/RetwhoConnector.App.Tests/RetwhoConnector.App.Tests.csproj -c Release
+```
+
+Then open `RetwhoConnector.sln` in Visual Studio, set `RetwhoConnector.App` as
+the startup project, and run it without real credentials. Capture screenshots
+of the normal four-column rail, the narrow two-by-two rail, focused and
+disabled buttons, the Settings dialog, and the app under a Windows
+high-contrast theme. Manually confirm title and description visibility,
+normal/hover/pressed/focus/disabled button states, responsive Settings while
+activity updates, and unchanged notification-area close/minimize/restore/Exit
+behavior. Store screenshots only in the approved test evidence location and
+never include credentials, license keys, cookies, POS hosts, or live logs.
+
+Windows visual execution, high-contrast verification, Visual Studio launch,
+and live-service acceptance are unverified on non-Windows environments.
 
 ## POS login and cookie handling
 
