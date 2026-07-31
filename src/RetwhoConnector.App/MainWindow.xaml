@@ -2,134 +2,252 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:RetwhoConnector.App.Converters"
-        Title="Retwho Connector"
-        Width="980"
-        Height="820"
-        MinWidth="760"
-        MinHeight="620"
-        WindowStartupLocation="CenterScreen">
+        Title="Hybrid Edge Connector Agent"
+        Width="1120"
+        Height="760"
+        MinWidth="860"
+        MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        AutomationProperties.Name="Hybrid Edge Connector Agent dashboard">
     <Window.Resources>
         <conv:StatusToBrushConverter x:Key="StatusBrush" />
+        <conv:LogCategoryToBrushConverter x:Key="LogCategoryBrush" />
     </Window.Resources>
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <Grid Margin="28">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
 
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
             <StackPanel>
-                <TextBlock Text="Retwho Connector" FontSize="30" FontWeight="Bold" />
-                <TextBlock Text="Secure local POS to cloud bridge"
+                <TextBlock Text="Hybrid Edge Connector Agent"
+                           FontSize="28"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="Secure local POS to Retwho cloud bridge"
                            Foreground="{DynamicResource SecondaryTextBrush}"
-                           FontSize="16" Margin="0,4,0,20" />
+                           FontSize="15"
+                           Margin="0,4,0,0" />
             </StackPanel>
+            <WrapPanel Grid.Column="1"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Center">
+                <Button Content="Settings"
+                        Command="{Binding OpenSettingsCommand}"
+                        AutomationProperties.Name="Open connection settings" />
+                <Button Content="{Binding ConnectionActionText}"
+                        Command="{Binding ToggleConnectionCommand}"
+                        AutomationProperties.Name="Connect or disconnect" />
+                <Button Content="Open Logs Folder"
+                        Command="{Binding OpenLogsFolderCommand}" />
+                <Button Content="Exit"
+                        Command="{Binding ExitCommand}"
+                        Style="{StaticResource SecondaryButtonStyle}" />
+            </WrapPanel>
+        </Grid>
 
-            <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}"
-                    CornerRadius="8" Padding="20" Margin="0,0,0,16">
+        <UniformGrid Grid.Row="1"
+                     Columns="4"
+                     Margin="0,22,0,16">
+            <Border Style="{StaticResource StatusCardStyle}"
+                    AutomationProperties.Name="Configuration status">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="24" />
+                        <ColumnDefinition Width="42" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel>
-                        <TextBlock Text="Configuration" Style="{StaticResource SectionHeaderStyle}" />
-                        <TextBlock Text="License key" />
-                        <PasswordBox x:Name="LicenseKeyBox"
-                                     AutomationProperties.Name="License key"
-                                     PasswordChanged="LicenseKeyBox_OnPasswordChanged" />
-                        <TextBlock Text="Local POS HTTPS URL" />
-                        <TextBox Text="{Binding PosBaseUrl, UpdateSourceTrigger=PropertyChanged}"
-                                 AutomationProperties.Name="Local POS HTTPS URL" />
-                        <TextBlock Text="POS username" />
-                        <TextBox Text="{Binding PosUsername, UpdateSourceTrigger=PropertyChanged}"
-                                 AutomationProperties.Name="POS username" />
-                        <TextBlock Text="POS password" />
-                        <PasswordBox x:Name="PosPasswordBox"
-                                     AutomationProperties.Name="POS password"
-                                     PasswordChanged="PosPasswordBox_OnPasswordChanged" />
-                        <CheckBox Content="Connect automatically on startup"
-                                  IsChecked="{Binding AutoConnect}"
-                                  Foreground="{DynamicResource PrimaryTextBrush}"
-                                  Margin="0,4,0,12" />
-                        <TextBlock Text="{Binding ValidationMessage}"
-                                   Foreground="{DynamicResource ErrorBrush}"
-                                   TextWrapping="Wrap" Margin="0,0,0,8" />
-                        <WrapPanel>
-                            <Button Content="Save &amp; Connect"
-                                    Command="{Binding SaveAndConnectCommand}" />
-                            <Button Content="Disconnect"
-                                    Command="{Binding DisconnectCommand}" />
-                            <Button Content="Test POS Login"
-                                    Command="{Binding TestPosLoginCommand}" />
-                            <Button Content="Trust POS Certificate"
-                                    Command="{Binding TrustPosCertificateCommand}" />
-                            <Button Content="Clear Saved Settings"
-                                    Command="{Binding ClearSavedSettingsCommand}" />
-                        </WrapPanel>
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="Status" Style="{StaticResource SectionHeaderStyle}" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="170" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="36" />
-                                <RowDefinition Height="36" />
-                                <RowDefinition Height="36" />
-                                <RowDefinition Height="36" />
-                                <RowDefinition Height="36" />
-                            </Grid.RowDefinitions>
-                            <TextBlock Text="POS configuration" />
-                            <TextBlock Grid.Column="1" Text="{Binding PosConfigurationStatus}"
-                                       Foreground="{Binding PosConfigurationStatus, Converter={StaticResource StatusBrush}}"
-                                       FontWeight="SemiBold" />
-                            <TextBlock Grid.Row="1" Text="POS authentication" />
-                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PosAuthenticationStatus}"
-                                       Foreground="{Binding PosAuthenticationStatus, Converter={StaticResource StatusBrush}}"
-                                       FontWeight="SemiBold" />
-                            <TextBlock Grid.Row="2" Text="Bridge transport" />
-                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding BridgeStatus}"
-                                       Foreground="{Binding BridgeStatus, Converter={StaticResource StatusBrush}}"
-                                       FontWeight="SemiBold" />
-                            <TextBlock Grid.Row="3" Text="Agent registration" />
-                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding RegistrationStatus}"
-                                       Foreground="{Binding RegistrationStatus, Converter={StaticResource StatusBrush}}"
-                                       FontWeight="SemiBold" />
-                            <TextBlock Grid.Row="4" Text="Last command" />
-                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LastCommandStatus}"
-                                       Foreground="{Binding LastCommandStatus, Converter={StaticResource StatusBrush}}"
-                                       FontWeight="SemiBold" />
-                        </Grid>
-                        <TextBlock Text="Last JSON result" Style="{StaticResource SectionHeaderStyle}"
-                                   Margin="0,20,0,8" />
-                        <TextBox Text="{Binding LastJsonResult, Mode=OneWay}" IsReadOnly="True"
-                                 AcceptsReturn="True" FontFamily="Consolas"
-                                 MinHeight="220" VerticalScrollBarVisibility="Auto"
-                                 HorizontalScrollBarVisibility="Auto" />
+                    <TextBlock Text="🔧"
+                               FontSize="23"
+                               VerticalAlignment="Center"
+                               AutomationProperties.Name="Configuration" />
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="CONFIG"
+                                   Style="{StaticResource CardLabelStyle}" />
+                        <TextBlock Text="{Binding ConfigurationStatus}"
+                                   Foreground="{Binding ConfigurationStatus,
+                                       Converter={StaticResource StatusBrush}}"
+                                   Style="{StaticResource CardValueStyle}" />
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}"
-                    CornerRadius="8" Padding="20">
-                <StackPanel>
-                    <TextBlock Text="Activity" Style="{StaticResource SectionHeaderStyle}" />
-                    <ListBox ItemsSource="{Binding ActivityItems}"
-                             Background="Transparent"
-                             Foreground="{DynamicResource SecondaryTextBrush}"
-                             BorderThickness="0"
-                             MinHeight="120"
-                             MaxHeight="220"
-                             AutomationProperties.Name="Recent connector activity" />
-                </StackPanel>
+            <Border Style="{StaticResource StatusCardStyle}"
+                    AutomationProperties.Name="Cloud server status">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="42" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="☁"
+                               FontSize="25"
+                               VerticalAlignment="Center"
+                               AutomationProperties.Name="Cloud server" />
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="CONNECTOR.RETWHO.COM"
+                                   Style="{StaticResource CardLabelStyle}" />
+                        <TextBlock Text="{Binding ServerStatus}"
+                                   Foreground="{Binding ServerStatus,
+                                       Converter={StaticResource StatusBrush}}"
+                                   Style="{StaticResource CardValueStyle}" />
+                    </StackPanel>
+                </Grid>
             </Border>
-        </Grid>
-    </ScrollViewer>
+
+            <Border Style="{StaticResource StatusCardStyle}"
+                    AutomationProperties.Name="Agent health status">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="42" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="⛨"
+                               FontSize="25"
+                               VerticalAlignment="Center"
+                               AutomationProperties.Name="Agent health" />
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="AGENT"
+                                   Style="{StaticResource CardLabelStyle}" />
+                        <TextBlock Text="{Binding AgentStatus}"
+                                   Foreground="{Binding AgentStatus,
+                                       Converter={StaticResource StatusBrush}}"
+                                   Style="{StaticResource CardValueStyle}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Style="{StaticResource StatusCardStyle}"
+                    AutomationProperties.Name="Logging health status">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="42" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="›_"
+                               FontFamily="Consolas"
+                               FontSize="22"
+                               FontWeight="Bold"
+                               VerticalAlignment="Center"
+                               AutomationProperties.Name="Logging" />
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="LOGS"
+                                   Style="{StaticResource CardLabelStyle}" />
+                        <TextBlock Text="{Binding LoggingStatus}"
+                                   Foreground="{Binding LoggingStatus,
+                                       Converter={StaticResource StatusBrush}}"
+                                   Style="{StaticResource CardValueStyle}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </UniformGrid>
+
+        <Border Grid.Row="2"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="14,10"
+                Margin="0,0,0,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Ellipse Width="9"
+                         Height="9"
+                         Fill="{Binding AgentStatus,
+                             Converter={StaticResource StatusBrush}}"
+                         VerticalAlignment="Center"
+                         Margin="0,0,10,0" />
+                <TextBlock Grid.Column="1"
+                           Text="{Binding BannerMessage}"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           TextWrapping="Wrap" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="3"
+                Background="{DynamicResource TerminalBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="10"
+                Padding="0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Border Background="{DynamicResource SurfaceBrush}"
+                        Padding="16,11"
+                        CornerRadius="9,9,0,0">
+                    <Grid>
+                        <TextBlock Text="LIVE ACTIVITY"
+                                   FontWeight="SemiBold"
+                                   FontSize="13" />
+                        <TextBlock Text="sanitized diagnostics"
+                                   HorizontalAlignment="Right"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontSize="12" />
+                    </Grid>
+                </Border>
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding ActivityEntries}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         FontFamily="Consolas"
+                         ScrollViewer.CanContentScroll="True"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         VirtualizingStackPanel.IsVirtualizing="True"
+                         VirtualizingStackPanel.VirtualizationMode="Recycling"
+                         AutomationProperties.Name="Live sanitized agent activity">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="HorizontalContentAlignment"
+                                    Value="Stretch" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="Focusable" Value="False" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{Binding Category,
+                                                Converter={StaticResource LogCategoryBrush}}"
+                                    Padding="14,7"
+                                    Margin="0,0,0,1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="74" />
+                                        <ColumnDefinition Width="92" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding LocalTime}"
+                                               Foreground="{DynamicResource MutedTextBrush}" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding CategoryText}"
+                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                               FontWeight="SemiBold" />
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="{Binding Message}"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                                        <TextBlock Text="{Binding Details}"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   FontSize="12" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+    </Grid>
 </Window>

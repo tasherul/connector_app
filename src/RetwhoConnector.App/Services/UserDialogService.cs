@@ -35,7 +35,7 @@ public sealed class UserDialogService : IUserDialogService
     public void ShowError(string message) =>
         WpfMessageBox.Show(
             message,
-            "Retwho Connector",
+            "Hybrid Edge Connector Agent",
             MessageBoxButton.OK,
             MessageBoxImage.Error);
 }

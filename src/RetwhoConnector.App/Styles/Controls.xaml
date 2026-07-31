@@ -16,7 +16,8 @@
         <Setter Property="Margin" Value="0,4,0,10" />
         <Setter Property="Background" Value="{DynamicResource SurfaceLightBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource NeutralBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource PrimaryTextBrush}" />
     </Style>
     <Style TargetType="PasswordBox">
         <Setter Property="MinHeight" Value="34" />
@@ -24,7 +25,7 @@
         <Setter Property="Margin" Value="0,4,0,10" />
         <Setter Property="Background" Value="{DynamicResource SurfaceLightBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource NeutralBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
     </Style>
     <Style TargetType="Button">
         <Setter Property="MinHeight" Value="36" />
@@ -33,10 +34,41 @@
         <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
         <Setter Property="Foreground" Value="#07111F" />
         <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style x:Key="SecondaryButtonStyle"
+           TargetType="Button"
+           BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background"
+                Value="{DynamicResource SurfaceLightBrush}" />
+        <Setter Property="Foreground"
+                Value="{DynamicResource PrimaryTextBrush}" />
+        <Setter Property="BorderBrush"
+                Value="{DynamicResource BorderBrush}" />
     </Style>
     <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="18" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+    <Style x:Key="StatusCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="9" />
+        <Setter Property="Padding" Value="15,14" />
+        <Setter Property="Margin" Value="0,0,10,0" />
+    </Style>
+    <Style x:Key="CardLabelStyle" TargetType="TextBlock">
+        <Setter Property="Foreground"
+                Value="{DynamicResource SecondaryTextBrush}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style x:Key="CardValueStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="0,4,0,0" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 </ResourceDictionary>

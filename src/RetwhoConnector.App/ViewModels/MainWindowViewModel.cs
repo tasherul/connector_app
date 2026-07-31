@@ -1,99 +1,65 @@
 using System.Collections.ObjectModel;
-using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RetwhoConnector.App.Services;
 using RetwhoConnector.Core.Abstractions;
 using RetwhoConnector.Core.Exceptions;
 using RetwhoConnector.Core.Models;
-using RetwhoConnector.Core.Serialization;
 using RetwhoConnector.Core.Services;
-using RetwhoConnector.Core.Validation;
+using WpfApplication = System.Windows.Application;
 
 namespace RetwhoConnector.App.ViewModels;
 
 public sealed class MainWindowViewModel : ObservableObject
 {
-    private readonly ConnectorCoordinator _coordinator;
     private readonly IAgentOrchestrationService _orchestration;
-    private readonly ISecureSettingsService _settingsService;
-    private readonly ICertificateTrustService _certificateTrust;
+    private readonly IAgentLog _agentLog;
+    private readonly UiLogBufferSink _uiLogBuffer;
+    private readonly IConfigurationDialogService _configurationDialog;
+    private readonly IApplicationControlService _applicationControl;
     private readonly IUserDialogService _dialogs;
-    private string? _pinnedCertificate;
-    private string _licenseKey = string.Empty;
-    private string _posBaseUrl = string.Empty;
-    private string _posUsername = string.Empty;
-    private string _posPassword = string.Empty;
-    private bool _autoConnect = true;
     private bool _isBusy;
-    private string _validationMessage = string.Empty;
-    private string _posConfigurationStatus = "Not configured";
-    private string _posAuthenticationStatus = "Not configured";
-    private string _bridgeStatus = "Disconnected";
-    private string _registrationStatus = "Not registered";
-    private string _lastCommandStatus = "None";
-    private string _lastJsonResult = "{}";
+    private string _configurationStatus = "Missing configuration";
+    private string _serverStatus = "Offline";
+    private string _agentStatus = "Idle";
+    private string _loggingStatus = "Stopped";
+    private string _connectionActionText = "Connect";
+    private string _bannerMessage =
+        "Open Settings to configure the local POS and license.";
+    private int _logRefreshScheduled;
 
     public MainWindowViewModel(
-        ConnectorCoordinator coordinator,
         IAgentOrchestrationService orchestration,
-        ISecureSettingsService settingsService,
-        ICertificateTrustService certificateTrust,
+        IAgentLog agentLog,
+        UiLogBufferSink uiLogBuffer,
+        IConfigurationDialogService configurationDialog,
+        IApplicationControlService applicationControl,
         IUserDialogService dialogs)
     {
-        _coordinator = coordinator;
         _orchestration = orchestration;
-        _settingsService = settingsService;
-        _certificateTrust = certificateTrust;
+        _agentLog = agentLog;
+        _uiLogBuffer = uiLogBuffer;
+        _configurationDialog = configurationDialog;
+        _applicationControl = applicationControl;
         _dialogs = dialogs;
-        SaveAndConnectCommand = new AsyncRelayCommand(
-            () => ExecuteAsync(SaveAndConnectAsync),
+
+        OpenSettingsCommand = new AsyncRelayCommand(
+            () => ExecuteAsync(OpenSettingsAsync),
             () => !IsBusy);
-        DisconnectCommand = new AsyncRelayCommand(
-            () => ExecuteAsync(_coordinator.DisconnectAsync),
+        ToggleConnectionCommand = new AsyncRelayCommand(
+            () => ExecuteAsync(ToggleConnectionAsync),
             () => !IsBusy);
-        TestPosLoginCommand = new AsyncRelayCommand(
-            () => ExecuteAsync(TestPosLoginAsync),
+        OpenLogsFolderCommand = new RelayCommand(
+            OpenLogsFolder,
             () => !IsBusy);
-        TrustPosCertificateCommand = new AsyncRelayCommand(
-            () => ExecuteAsync(TrustCertificateAsync),
-            () => !IsBusy);
-        ClearSavedSettingsCommand = new AsyncRelayCommand(
-            () => ExecuteAsync(ClearSettingsAsync),
-            () => !IsBusy);
-        _coordinator.StatusChanged += OnStatusChanged;
-        _coordinator.ResultReceived += OnResultReceived;
+        ExitCommand = new RelayCommand(_applicationControl.RequestExit);
+
+        _orchestration.StatusChanged += OnStatusChanged;
+        _agentLog.HealthChanged += OnLoggingHealthChanged;
+        _uiLogBuffer.Changed += OnUiLogBufferChanged;
     }
 
-    public string LicenseKey
-    {
-        get => _licenseKey;
-        set => SetProperty(ref _licenseKey, value);
-    }
-
-    public string PosBaseUrl
-    {
-        get => _posBaseUrl;
-        set => SetProperty(ref _posBaseUrl, value);
-    }
-
-    public string PosUsername
-    {
-        get => _posUsername;
-        set => SetProperty(ref _posUsername, value);
-    }
-
-    public string PosPassword
-    {
-        get => _posPassword;
-        set => SetProperty(ref _posPassword, value);
-    }
-
-    public bool AutoConnect
-    {
-        get => _autoConnect;
-        set => SetProperty(ref _autoConnect, value);
-    }
+    public ObservableCollection<LogEntryViewModel> ActivityEntries { get; } = [];
 
     public bool IsBusy
     {
@@ -102,147 +68,115 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             if (SetProperty(ref _isBusy, value))
             {
-                NotifyCommands();
+                OpenSettingsCommand.NotifyCanExecuteChanged();
+                ToggleConnectionCommand.NotifyCanExecuteChanged();
+                OpenLogsFolderCommand.NotifyCanExecuteChanged();
             }
         }
     }
 
-    public string ValidationMessage
+    public string ConfigurationStatus
     {
-        get => _validationMessage;
-        private set => SetProperty(ref _validationMessage, value);
+        get => _configurationStatus;
+        private set => SetProperty(ref _configurationStatus, value);
     }
 
-    public string PosConfigurationStatus
+    public string ServerStatus
     {
-        get => _posConfigurationStatus;
-        private set => SetProperty(ref _posConfigurationStatus, value);
+        get => _serverStatus;
+        private set => SetProperty(ref _serverStatus, value);
     }
 
-    public string PosAuthenticationStatus
+    public string AgentStatus
     {
-        get => _posAuthenticationStatus;
-        private set => SetProperty(ref _posAuthenticationStatus, value);
+        get => _agentStatus;
+        private set => SetProperty(ref _agentStatus, value);
     }
 
-    public string BridgeStatus
+    public string LoggingStatus
     {
-        get => _bridgeStatus;
-        private set => SetProperty(ref _bridgeStatus, value);
+        get => _loggingStatus;
+        private set => SetProperty(ref _loggingStatus, value);
     }
 
-    public string RegistrationStatus
+    public string ConnectionActionText
     {
-        get => _registrationStatus;
-        private set => SetProperty(ref _registrationStatus, value);
+        get => _connectionActionText;
+        private set => SetProperty(ref _connectionActionText, value);
     }
 
-    public string LastCommandStatus
+    public string BannerMessage
     {
-        get => _lastCommandStatus;
-        private set => SetProperty(ref _lastCommandStatus, value);
+        get => _bannerMessage;
+        private set => SetProperty(ref _bannerMessage, value);
     }
 
-    public string LastJsonResult
-    {
-        get => _lastJsonResult;
-        private set => SetProperty(ref _lastJsonResult, value);
-    }
-
-    public ObservableCollection<string> ActivityItems { get; } = [];
-    public IAsyncRelayCommand SaveAndConnectCommand { get; }
-    public IAsyncRelayCommand DisconnectCommand { get; }
-    public IAsyncRelayCommand TestPosLoginCommand { get; }
-    public IAsyncRelayCommand TrustPosCertificateCommand { get; }
-    public IAsyncRelayCommand ClearSavedSettingsCommand { get; }
+    public IAsyncRelayCommand OpenSettingsCommand { get; }
+    public IAsyncRelayCommand ToggleConnectionCommand { get; }
+    public IRelayCommand OpenLogsFolderCommand { get; }
+    public IRelayCommand ExitCommand { get; }
 
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
         try
         {
-            ConnectorSettings? settings =
-                await _settingsService.LoadAsync(cancellationToken);
-            if (settings is not null)
-            {
-                LicenseKey = settings.LicenseKey;
-                PosBaseUrl = settings.PosBaseUrl;
-                PosUsername = settings.PosUsername;
-                PosPassword = settings.PosPassword;
-                AutoConnect = settings.AutoConnect;
-                _pinnedCertificate = settings.PinnedCertificateSha256;
-            }
-
             await _orchestration.InitializeAsync(cancellationToken);
         }
         catch (ConnectorException exception)
         {
-            ValidationMessage = $"{exception.Code}: {exception.SafeMessage}";
-            AddActivity(ValidationMessage);
+            ReportSafeFailure(exception.Code, exception.SafeMessage);
         }
-    }
-
-    private async Task SaveAndConnectAsync(CancellationToken cancellationToken)
-    {
-        ConnectorSettings settings = BuildSettings();
-        await _coordinator.SaveAndConnectAsync(settings, cancellationToken);
-        AddActivity("Settings saved and connector registered.");
-    }
-
-    private async Task TestPosLoginAsync(CancellationToken cancellationToken)
-    {
-        await _coordinator.TestPosLoginAsync(BuildSettings(), cancellationToken);
-        AddActivity("POS login test succeeded.");
-    }
-
-    private async Task TrustCertificateAsync(CancellationToken cancellationToken)
-    {
-        ConnectorSettings settings = BuildSettings();
-        PresentedCertificate certificate = await _certificateTrust.InspectAsync(
-            new Uri(settings.PosBaseUrl),
-            cancellationToken);
-        if (!_dialogs.ConfirmCertificate(certificate))
+        catch (Exception exception)
         {
-            AddActivity("POS certificate approval cancelled.");
-            return;
+            _agentLog.TryWrite(
+                AgentLogLevel.Error,
+                AgentLogCategory.Error,
+                "The dashboard could not initialize.",
+                exception.GetType().FullName);
+            BannerMessage =
+                "The dashboard could not initialize. See the local logs.";
         }
 
-        _pinnedCertificate = certificate.Sha256Fingerprint;
-        await _settingsService.SaveAsync(
-            settings with
-            {
-                PinnedCertificateSha256 = certificate.Sha256Fingerprint,
-            },
-            cancellationToken);
-        AddActivity("POS certificate fingerprint approved and encrypted.");
+        ApplyStatus(_orchestration.CurrentStatus);
+        ApplyLoggingHealth(_agentLog.CurrentHealth);
+        RefreshActivityEntries();
     }
 
-    private async Task ClearSettingsAsync(CancellationToken cancellationToken)
+    private async Task OpenSettingsAsync(CancellationToken cancellationToken)
     {
-        if (!_dialogs.ConfirmClearSettings())
-        {
-            return;
-        }
-
-        await _coordinator.ClearSettingsAsync(cancellationToken);
-        LicenseKey = string.Empty;
-        PosBaseUrl = string.Empty;
-        PosUsername = string.Empty;
-        PosPassword = string.Empty;
-        _pinnedCertificate = null;
-        LastJsonResult = "{}";
-        AddActivity("Encrypted settings cleared.");
+        await _configurationDialog.ShowAsync(cancellationToken);
+        ApplyStatus(_orchestration.CurrentStatus);
     }
 
-    private ConnectorSettings BuildSettings() =>
-        ConnectorSettingsValidator.Validate(new ConnectorSettings
+    private Task ToggleConnectionAsync(CancellationToken cancellationToken)
+    {
+        BridgeTransportState transport =
+            _orchestration.CurrentStatus.BridgeTransport;
+        return transport is
+            BridgeTransportState.Connected or
+            BridgeTransportState.Connecting or
+            BridgeTransportState.Reconnecting
+                ? _orchestration.DisconnectAsync(cancellationToken)
+                : _orchestration.ConnectSavedAsync(cancellationToken);
+    }
+
+    private void OpenLogsFolder()
+    {
+        try
         {
-            LicenseKey = LicenseKey,
-            PosBaseUrl = PosBaseUrl,
-            PosUsername = PosUsername,
-            PosPassword = PosPassword,
-            PinnedCertificateSha256 = _pinnedCertificate,
-            AutoConnect = AutoConnect,
-        });
+            _applicationControl.OpenLogsFolder();
+        }
+        catch (Exception exception)
+        {
+            _agentLog.TryWrite(
+                AgentLogLevel.Error,
+                AgentLogCategory.Error,
+                "The logs folder could not be opened.",
+                exception.GetType().FullName);
+            _dialogs.ShowError(
+                "The logs folder could not be opened.");
+        }
+    }
 
     private async Task ExecuteAsync(
         Func<CancellationToken, Task> operation)
@@ -253,29 +187,28 @@ public sealed class MainWindowViewModel : ObservableObject
         }
 
         IsBusy = true;
-        ValidationMessage = string.Empty;
         try
         {
             await operation(CancellationToken.None);
         }
         catch (ConnectorException exception)
         {
-            ValidationMessage = $"{exception.Code}: {exception.SafeMessage}";
-            AddActivity(ValidationMessage);
-            _dialogs.ShowError(ValidationMessage);
+            ReportSafeFailure(exception.Code, exception.SafeMessage);
         }
         catch (ArgumentException exception)
         {
-            ValidationMessage = exception.Message;
-            AddActivity("Configuration validation failed.");
-            _dialogs.ShowError(ValidationMessage);
+            ReportSafeFailure("CONFIG_INVALID", exception.Message);
         }
-        catch (Exception)
+        catch (Exception exception)
         {
-            ValidationMessage =
-                "The operation failed. See the local connector log for details.";
-            AddActivity(ValidationMessage);
-            _dialogs.ShowError(ValidationMessage);
+            _agentLog.TryWrite(
+                AgentLogLevel.Error,
+                AgentLogCategory.Error,
+                "The requested operation failed.",
+                exception.GetType().FullName);
+            BannerMessage =
+                "The operation failed. See the local logs for details.";
+            _dialogs.ShowError(BannerMessage);
         }
         finally
         {
@@ -283,55 +216,111 @@ public sealed class MainWindowViewModel : ObservableObject
         }
     }
 
-    private void OnStatusChanged(object? sender, ConnectorStatus status)
+    private void ReportSafeFailure(string code, string safeMessage)
     {
-        void Apply()
-        {
-            PosConfigurationStatus = status.PosConfiguration.ToString();
-            PosAuthenticationStatus = status.PosAuthentication.ToString();
-            BridgeStatus = status.BridgeTransport.ToString();
-            RegistrationStatus = status.AgentRegistration.ToString();
-            LastCommandStatus = status.LastCommand.ToString();
-            AddActivity(status.Message);
-        }
-
-        System.Windows.Application.Current.Dispatcher.Invoke(Apply);
+        BannerMessage = $"{code}: {safeMessage}";
+        _agentLog.TryWrite(
+            AgentLogLevel.Error,
+            AgentLogCategory.Error,
+            BannerMessage);
+        _dialogs.ShowError(BannerMessage);
     }
 
-    private void OnResultReceived(object? sender, VdatetimeResult result)
-    {
-        void Apply() =>
-            LastJsonResult = JsonSerializer.Serialize(
-                result,
-                new JsonSerializerOptions(ConnectorJson.Options)
-                {
-                    WriteIndented = true,
-                });
-        System.Windows.Application.Current.Dispatcher.Invoke(Apply);
-    }
+    private void OnStatusChanged(object? sender, ConnectorStatus status) =>
+        RunOnUiThread(() => ApplyStatus(status));
 
-    private void AddActivity(string message)
+    private void OnLoggingHealthChanged(
+        object? sender,
+        LogPipelineHealth health) =>
+        RunOnUiThread(() => ApplyLoggingHealth(health));
+
+    private void OnUiLogBufferChanged(object? sender, EventArgs args)
     {
-        if (string.IsNullOrWhiteSpace(message))
+        if (Interlocked.Exchange(ref _logRefreshScheduled, 1) != 0)
         {
             return;
         }
 
-        ActivityItems.Insert(
-            0,
-            $"{DateTimeOffset.Now:HH:mm:ss} {message}");
-        while (ActivityItems.Count > 200)
+        RunOnUiThread(() =>
         {
-            ActivityItems.RemoveAt(ActivityItems.Count - 1);
+            try
+            {
+                RefreshActivityEntries();
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _logRefreshScheduled, 0);
+            }
+        });
+    }
+
+    private void ApplyStatus(ConnectorStatus status)
+    {
+        ConfigurationStatus = status.PosConfiguration switch
+        {
+            PosConfigurationState.Configured => "Configured",
+            PosConfigurationState.Invalid => "Invalid",
+            _ => "Missing configuration",
+        };
+        ServerStatus = status.BridgeTransport switch
+        {
+            BridgeTransportState.Connected => "Connected",
+            BridgeTransportState.Connecting => "Connecting",
+            BridgeTransportState.Reconnecting => "Reconnecting",
+            BridgeTransportState.AuthenticationFailed =>
+                "Authentication failed",
+            BridgeTransportState.SessionReplaced => "Session replaced",
+            BridgeTransportState.Stopping => "Disconnecting",
+            _ => "Offline",
+        };
+        AgentStatus = status.AgentRegistration switch
+        {
+            AgentRegistrationState.Registered => "Active",
+            AgentRegistrationState.Failed => "Error",
+            AgentRegistrationState.SessionReplaced => "Inactive",
+            _ => "Idle",
+        };
+        ConnectionActionText = status.BridgeTransport is
+            BridgeTransportState.Connected or
+            BridgeTransportState.Connecting or
+            BridgeTransportState.Reconnecting
+                ? "Disconnect"
+                : "Connect";
+        BannerMessage = status.Message;
+    }
+
+    private void ApplyLoggingHealth(LogPipelineHealth health)
+    {
+        LoggingStatus = health.State switch
+        {
+            LoggingHealthState.Healthy => "Healthy",
+            LoggingHealthState.Degraded when health.DroppedEntries > 0 =>
+                $"Degraded ({health.DroppedEntries} dropped)",
+            LoggingHealthState.Degraded => "Degraded",
+            _ => "Stopped",
+        };
+    }
+
+    private void RefreshActivityEntries()
+    {
+        IReadOnlyList<LogEntry> snapshot = _uiLogBuffer.GetSnapshot();
+        ActivityEntries.Clear();
+        foreach (LogEntry entry in snapshot)
+        {
+            ActivityEntries.Add(new LogEntryViewModel(entry));
         }
     }
 
-    private void NotifyCommands()
+    private static void RunOnUiThread(Action action)
     {
-        SaveAndConnectCommand.NotifyCanExecuteChanged();
-        DisconnectCommand.NotifyCanExecuteChanged();
-        TestPosLoginCommand.NotifyCanExecuteChanged();
-        TrustPosCertificateCommand.NotifyCanExecuteChanged();
-        ClearSavedSettingsCommand.NotifyCanExecuteChanged();
+        WpfApplication? application = WpfApplication.Current;
+        if (application is null ||
+            application.Dispatcher.CheckAccess())
+        {
+            action();
+            return;
+        }
+
+        _ = application.Dispatcher.InvokeAsync(action);
     }
 }

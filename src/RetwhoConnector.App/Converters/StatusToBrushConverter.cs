@@ -18,22 +18,34 @@ public sealed class StatusToBrushConverter : IValueConverter
     {
         string status = value?.ToString() ?? string.Empty;
         string key =
-            status.StartsWith("Not", StringComparison.OrdinalIgnoreCase) ||
-            status.Equals("Disconnected", StringComparison.OrdinalIgnoreCase) ||
-            status.Equals("None", StringComparison.OrdinalIgnoreCase)
-                ? "NeutralBrush"
-                : status.Contains("Registered", StringComparison.OrdinalIgnoreCase) ||
-            status.Contains("Authenticated", StringComparison.OrdinalIgnoreCase) ||
-            status.Contains("Completed", StringComparison.OrdinalIgnoreCase) ||
-            status.Contains("Configured", StringComparison.OrdinalIgnoreCase)
+            IsAny(
+                status,
+                "Configured",
+                "Connected",
+                "Active",
+                "Healthy",
+                "Registered",
+                "Authenticated",
+                "Completed")
                 ? "SuccessBrush"
-                : status.Contains("Connecting", StringComparison.OrdinalIgnoreCase) ||
-                  status.Contains("Registering", StringComparison.OrdinalIgnoreCase) ||
-                  status.Contains("Refreshing", StringComparison.OrdinalIgnoreCase)
+                : StartsWithAny(
+                    status,
+                    "Connecting",
+                    "Reconnecting",
+                    "Disconnecting",
+                    "Registering",
+                    "Refreshing",
+                    "Idle",
+                    "Degraded")
                     ? "WarningBrush"
-                    : status.Contains("Failed", StringComparison.OrdinalIgnoreCase) ||
-                      status.Contains("Changed", StringComparison.OrdinalIgnoreCase) ||
-                      status.Contains("Replaced", StringComparison.OrdinalIgnoreCase)
+                    : ContainsAny(
+                        status,
+                        "Missing",
+                        "Error",
+                        "Failed",
+                        "Changed",
+                        "Replaced",
+                        "Invalid")
                         ? "ErrorBrush"
                         : "NeutralBrush";
         return WpfApplication.Current.TryFindResource(key) as WpfBrush
@@ -46,4 +58,20 @@ public sealed class StatusToBrushConverter : IValueConverter
         object parameter,
         CultureInfo culture) =>
         throw new NotSupportedException();
+
+    private static bool IsAny(string value, params string[] candidates) =>
+        candidates.Any(candidate =>
+            value.Equals(candidate, StringComparison.OrdinalIgnoreCase));
+
+    private static bool StartsWithAny(
+        string value,
+        params string[] candidates) =>
+        candidates.Any(candidate =>
+            value.StartsWith(candidate, StringComparison.OrdinalIgnoreCase));
+
+    private static bool ContainsAny(
+        string value,
+        params string[] candidates) =>
+        candidates.Any(candidate =>
+            value.Contains(candidate, StringComparison.OrdinalIgnoreCase));
 }

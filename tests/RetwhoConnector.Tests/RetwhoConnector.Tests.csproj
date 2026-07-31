@@ -33,6 +33,9 @@
     <None Include="..\..\src\RetwhoConnector.App\MainWindow.xaml"
           Link="Fixtures\MainWindow.xaml"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\RetwhoConnector.App\ConfigurationWindow.xaml"
+          Link="Fixtures\ConfigurationWindow.xaml"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Update="Fixtures\*.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

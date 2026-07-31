@@ -4,11 +4,20 @@
     <SolidColorBrush x:Key="BackgroundBrush" Color="#0F172A" />
     <SolidColorBrush x:Key="SurfaceBrush" Color="#1E293B" />
     <SolidColorBrush x:Key="SurfaceLightBrush" Color="#334155" />
+    <SolidColorBrush x:Key="CardBrush" Color="#182338" />
+    <SolidColorBrush x:Key="TerminalBrush" Color="#09111F" />
+    <SolidColorBrush x:Key="BorderBrush" Color="#3B4B63" />
     <SolidColorBrush x:Key="PrimaryTextBrush" Color="#F8FAFC" />
     <SolidColorBrush x:Key="SecondaryTextBrush" Color="#CBD5E1" />
+    <SolidColorBrush x:Key="MutedTextBrush" Color="#94A3B8" />
     <SolidColorBrush x:Key="AccentBrush" Color="#38BDF8" />
     <SolidColorBrush x:Key="SuccessBrush" Color="#22C55E" />
     <SolidColorBrush x:Key="WarningBrush" Color="#F59E0B" />
     <SolidColorBrush x:Key="ErrorBrush" Color="#EF4444" />
     <SolidColorBrush x:Key="NeutralBrush" Color="#94A3B8" />
+    <SolidColorBrush x:Key="LogSuccessBrush" Color="#243D2F" />
+    <SolidColorBrush x:Key="LogWarningBrush" Color="#453619" />
+    <SolidColorBrush x:Key="LogActionBrush" Color="#173B55" />
+    <SolidColorBrush x:Key="LogErrorBrush" Color="#4A2027" />
+    <SolidColorBrush x:Key="LogGeneralBrush" Color="#111C2E" />
 </ResourceDictionary>

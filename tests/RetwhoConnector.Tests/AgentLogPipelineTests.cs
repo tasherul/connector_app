@@ -152,6 +152,28 @@ public sealed class AgentLogPipelineTests
         Assert.Equal(AgentLogCategory.Error, entry.Category);
     }
 
+    [Fact]
+    public async Task UiBuffer_RetainsExactlyNewestThousandEntries()
+    {
+        var sink = new UiLogBufferSink(maximumEntries: 1_000);
+        for (var index = 0; index < 1_005; index++)
+        {
+            await sink.WriteAsync(
+                new LogEntry(
+                    DateTimeOffset.UtcNow,
+                    AgentLogLevel.Information,
+                    AgentLogCategory.General,
+                    $"entry-{index}"),
+                CancellationToken.None);
+        }
+
+        IReadOnlyList<LogEntry> snapshot = sink.GetSnapshot();
+
+        Assert.Equal(1_000, snapshot.Count);
+        Assert.Equal("entry-5", snapshot[0].Message);
+        Assert.Equal("entry-1004", snapshot[^1].Message);
+    }
+
     private static AgentLogPipeline CreatePipeline(
         IAgentLogSink sink,
         AgentLoggingOptions? options = null) =>

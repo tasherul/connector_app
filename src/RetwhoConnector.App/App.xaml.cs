@@ -33,8 +33,8 @@ public partial class App : System.Windows.Application
         if (!createdNew)
         {
             WpfMessageBox.Show(
-                "Retwho Connector is already running.",
-                "Retwho Connector",
+                "Hybrid Edge Connector Agent is already running.",
+                "Hybrid Edge Connector Agent",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             Shutdown();
@@ -109,10 +109,10 @@ public partial class App : System.Windows.Application
                 exceptionTarget,
                 errorCode);
             WpfMessageBox.Show(
-                $"Retwho Connector could not start while {startupStage}.\n\n" +
+                $"Hybrid Edge Connector Agent could not start while {startupStage}.\n\n" +
                 $"Error: {exception.GetType().Name} ({errorCode})\n" +
                 "See the local log for the safe diagnostic target.",
-                "Retwho Connector",
+                "Hybrid Edge Connector Agent",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             Shutdown(1);
@@ -138,6 +138,9 @@ public partial class App : System.Windows.Application
                     new SqliteLogSink(
                         provider.GetRequiredService<LogStorageOptions>(),
                         provider.GetRequiredService<TimeProvider>()));
+                services.AddSingleton<UiLogBufferSink>();
+                services.AddSingleton<IAgentLogSink>(provider =>
+                    provider.GetRequiredService<UiLogBufferSink>());
                 services.AddSingleton<AgentLogPipeline>();
                 services.AddSingleton<IAgentLog>(provider =>
                     provider.GetRequiredService<AgentLogPipeline>());
@@ -181,6 +184,13 @@ public partial class App : System.Windows.Application
                 services.AddSingleton<IHostedService>(provider =>
                     provider.GetRequiredService<AgentOrchestrationService>());
                 services.AddSingleton<IUserDialogService, UserDialogService>();
+                services.AddSingleton<
+                    IApplicationControlService,
+                    ApplicationControlService>();
+                services.AddSingleton<
+                    IConfigurationDialogService,
+                    ConfigurationDialogService>();
+                services.AddTransient<ConfigurationWindowViewModel>();
                 services.AddSingleton<MainWindowViewModel>();
                 services.AddSingleton<MainWindow>();
             })
