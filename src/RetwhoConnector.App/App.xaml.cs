@@ -113,7 +113,9 @@ public partial class App : Application
         }
         catch (Exception exception)
         {
-            Log.Fatal(exception, "Application startup failed");
+            Log.Fatal(
+                "Application startup failed ({ExceptionType})",
+                exception.GetType().Name);
             MessageBox.Show(
                 "Retwho Connector could not start. See the local log for details.",
                 "Retwho Connector",

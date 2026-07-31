@@ -75,8 +75,29 @@ public sealed class ConnectorCoordinator : IAsyncDisposable
         });
         if (settings.AutoConnect)
         {
-            await ConnectWithSettingsAsync(settings, cancellationToken)
-                .ConfigureAwait(false);
+            try
+            {
+                await ConnectWithSettingsAsync(settings, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(
+                    "Automatic connection did not complete ({ExceptionType})",
+                    exception.GetType().Name);
+                UpdateStatus(CurrentStatus with
+                {
+                    BridgeTransport = BridgeTransportState.Disconnected,
+                    AgentRegistration = AgentRegistrationState.Failed,
+                    Message =
+                        "Automatic connection failed. Review the saved settings and try again.",
+                });
+            }
         }
     }
 

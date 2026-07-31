@@ -1,0 +1,11 @@
+[
+  {
+    "Name": "Retwho Connector",
+    "Projects": [
+      {
+        "Path": "src\\RetwhoConnector.App\\RetwhoConnector.App.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

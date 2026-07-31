@@ -70,6 +70,46 @@ public sealed class ExecutionAndBridgeTests
     }
 
     [Fact]
+    public async Task Coordinator_AutoConnectFailureKeepsStartupUsable()
+    {
+        var settings = CreateSettings() with { AutoConnect = true };
+        var bridge = new FakeBridgeClient
+        {
+            ConnectException = new InvalidOperationException(
+                "FAKE_LICENSE must never be shown."),
+        };
+        var coordinator = new ConnectorCoordinator(
+            new FakeSettingsService(settings),
+            new FakeAuthenticationService(),
+            new FakeDataService(),
+            bridge,
+            new ActionExecutionRegistry(
+                TimeProvider.System,
+                CancellationToken.None),
+            new BridgeOptions(),
+            TimeProvider.System,
+            NullLogger<ConnectorCoordinator>.Instance,
+            CancellationToken.None);
+
+        await coordinator.InitializeAsync(CancellationToken.None);
+
+        Assert.Equal(1, bridge.ConnectCalls);
+        Assert.Equal(
+            BridgeTransportState.Disconnected,
+            coordinator.CurrentStatus.BridgeTransport);
+        Assert.Equal(
+            AgentRegistrationState.Failed,
+            coordinator.CurrentStatus.AgentRegistration);
+        Assert.Equal(
+            "Automatic connection failed. Review the saved settings and try again.",
+            coordinator.CurrentStatus.Message);
+        Assert.DoesNotContain(
+            "FAKE_LICENSE",
+            coordinator.CurrentStatus.Message,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Coordinator_UnsupportedCommandAcknowledgesFailure()
     {
         var bridge = new FakeBridgeClient { Registered = true };
@@ -272,6 +312,8 @@ public sealed class ExecutionAndBridgeTests
     private sealed class FakeBridgeClient : IBridgeSocketClient
     {
         public bool Registered { get; init; }
+        public Exception? ConnectException { get; init; }
+        public int ConnectCalls { get; private set; }
         public bool IsTransportConnected => Registered;
         public bool IsRegistered => Registered;
 
@@ -279,8 +321,13 @@ public sealed class ExecutionAndBridgeTests
         public event Func<BridgeActionContext, CancellationToken, Task>? ActionReceived;
         public event EventHandler? SessionReplaced;
 
-        public Task ConnectAsync(string licenseKey, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+        public Task ConnectAsync(string licenseKey, CancellationToken cancellationToken)
+        {
+            ConnectCalls++;
+            return ConnectException is null
+                ? Task.CompletedTask
+                : Task.FromException(ConnectException);
+        }
 
         public Task DisconnectAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;

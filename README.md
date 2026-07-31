@@ -13,20 +13,29 @@ validation.
 ## Requirements
 
 - Windows 10 or Windows 11 x64.
-- .NET 10 SDK.
-- Visual Studio with the **.NET desktop development** workload, or the .NET
-  CLI.
+- Visual Studio 2026 (version 18.0 or newer) with the **.NET desktop
+  development** workload. Visual Studio 2022 does not officially support
+  projects targeting `net10.0`.
+- For command-line builds without Visual Studio, the .NET 10 SDK.
 - Network access to the local POS HTTPS origin and
   `https://connector.retwho.com`.
 - An active Retwho connector license.
 
 ## Build in Visual Studio
 
-1. Open `RetwhoConnector.sln`.
-2. Select the `RetwhoConnector.App` startup project.
-3. Restore NuGet packages.
-4. Select `Release` and `Any CPU` or `x64`.
-5. Build and run.
+1. On Windows, double-click `RetwhoConnector.sln`.
+2. If Visual Studio reports missing components, accept the prompt generated
+   from `.vsconfig` to install the **.NET desktop development** workload.
+3. In the launch-profile list, select **Retwho Connector**. The checked-in
+   `RetwhoConnector.slnLaunch` profile starts only
+   `RetwhoConnector.App`.
+4. Leave **Debug** and **Any CPU** selected for normal development.
+5. Press **F5** to build and run with the debugger, or **Ctrl+F5** to run
+   without it.
+
+The solution contains the WPF app, its Core library, and the test project.
+NuGet restore normally starts automatically when the solution opens. If it
+does not, right-click the solution and select **Restore NuGet Packages**.
 
 CLI equivalents:
 
