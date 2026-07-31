@@ -161,6 +161,50 @@ public sealed class ConnectorContractTests
     }
 
     [Fact]
+    public void NewCommandAcknowledgements_ContainNormalizedTypedResults()
+    {
+        DateTimeOffset fetchedAtUtc = new(2026, 7, 31, 0, 0, 0, TimeSpan.Zero);
+        BridgeAcknowledgement page = BridgeAcknowledgement.Success(
+            new PluPageResult
+            {
+                Page = 2,
+                TotalPages = 4,
+                RequestedPageSize = 25,
+                ItemCount = 0,
+                FetchedAtUtc = fetchedAtUtc,
+            });
+        BridgeAcknowledgement lookup = BridgeAcknowledgement.Success(
+            new PluLookupResult
+            {
+                RequestedUpc = "00000000000001",
+                RequestedUpcModifier = "000",
+                Found = false,
+                FetchedAtUtc = fetchedAtUtc,
+            });
+        BridgeAcknowledgement referential = BridgeAcknowledgement.Success(
+            new ReferentialIntegrityResult
+            {
+                SiteId = "6720",
+                Limits = new ReferentialIntegrityLimits
+                {
+                    MaxRecords = 100,
+                    MaxFeesPerItem = 10,
+                },
+                FetchedAtUtc = fetchedAtUtc,
+            });
+
+        Assert.Equal(
+            """{"ok":true,"result":{"source":"NAXML","command":"vPLUs","page":2,"totalPages":4,"requestedPageSize":25,"itemCount":0,"products":[],"fetchedAtUtc":"2026-07-31T00:00:00+00:00"}}""",
+            JsonSerializer.Serialize(page, ConnectorJson.Options));
+        Assert.Equal(
+            """{"ok":true,"result":{"source":"NAXML","command":"vPLU","requestedUpc":"00000000000001","requestedUpcModifier":"000","found":false,"fetchedAtUtc":"2026-07-31T00:00:00+00:00"}}""",
+            JsonSerializer.Serialize(lookup, ConnectorJson.Options));
+        Assert.Equal(
+            """{"ok":true,"result":{"source":"NAXML","command":"vrefinteg","siteId":"6720","limits":{"maxRecords":100,"maxFeesPerItem":10},"taxRates":[],"departments":[],"productCodes":[],"ageValidations":[],"fees":[],"blueLaws":[],"fetchedAtUtc":"2026-07-31T00:00:00+00:00"}}""",
+            JsonSerializer.Serialize(referential, ConnectorJson.Options));
+    }
+
+    [Fact]
     public void ActionValidation_RequiresObjectParams()
     {
         using JsonDocument document = JsonDocument.Parse("[]");

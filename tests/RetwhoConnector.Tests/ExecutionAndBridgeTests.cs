@@ -70,6 +70,449 @@ public sealed class ExecutionAndBridgeTests
     }
 
     [Fact]
+    public async Task Coordinator_CurrentDataStillRaisesResultReceivedOnce()
+    {
+        var data = new FakeDataService();
+        var coordinator = CreateCoordinator(data: data);
+        VdatetimeResult? received = null;
+        var resultsReceived = 0;
+        coordinator.ResultReceived += (_, result) =>
+        {
+            resultsReceived++;
+            received = result;
+        };
+        BridgeAcknowledgement? sent = null;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            });
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.True(sent!.Ok);
+        Assert.Same(Assert.IsType<VdatetimeResult>(sent.Result), received);
+        Assert.Equal(1, resultsReceived);
+    }
+
+    [Fact]
+    public async Task Coordinator_GetPluPageDispatchesTypedResultWithSuppliedQuery()
+    {
+        var data = new FakeDataService();
+        var coordinator = CreateCoordinator(data: data);
+        BridgeAcknowledgement? sent = null;
+        var acknowledgements = 0;
+        var resultsReceived = 0;
+        coordinator.ResultReceived += (_, _) => resultsReceived++;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                acknowledgements++;
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            },
+            command: "get_plu_page",
+            parametersJson: """{"page":2,"pageSize":25}""");
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.True(sent!.Ok);
+        Assert.Same(data.PluPageResult, Assert.IsType<PluPageResult>(sent.Result));
+        Assert.Equal(new PluPageQuery(2, 25), data.LastPluPageQuery);
+        Assert.Equal("FAKE_COOKIE", data.LastCookie);
+        Assert.Equal(CreateSettings(), data.LastSettings);
+        Assert.Equal(1, data.PluPageCalls);
+        Assert.Equal(0, data.VdatetimeCalls);
+        Assert.Equal(1, acknowledgements);
+        Assert.Equal(0, resultsReceived);
+    }
+
+    [Fact]
+    public async Task Coordinator_GetPluDispatchesTypedResultWithSuppliedQuery()
+    {
+        var data = new FakeDataService();
+        var coordinator = CreateCoordinator(data: data);
+        BridgeAcknowledgement? sent = null;
+        var acknowledgements = 0;
+        var resultsReceived = 0;
+        coordinator.ResultReceived += (_, _) => resultsReceived++;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                acknowledgements++;
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            },
+            command: "get_plu",
+            parametersJson:
+                """{"upc":"00000000000001","upcModifier":"123"}""");
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.True(sent!.Ok);
+        Assert.Same(data.PluLookupResult, Assert.IsType<PluLookupResult>(sent.Result));
+        Assert.Equal(
+            new PluLookupQuery("00000000000001", "123"),
+            data.LastPluLookupQuery);
+        Assert.Equal("FAKE_COOKIE", data.LastCookie);
+        Assert.Equal(CreateSettings(), data.LastSettings);
+        Assert.Equal(1, data.PluLookupCalls);
+        Assert.Equal(0, data.VdatetimeCalls);
+        Assert.Equal(1, acknowledgements);
+        Assert.Equal(0, resultsReceived);
+    }
+
+    [Fact]
+    public async Task Coordinator_GetReferentialIntegrityDispatchesTypedResult()
+    {
+        var data = new FakeDataService();
+        var coordinator = CreateCoordinator(data: data);
+        BridgeAcknowledgement? sent = null;
+        var acknowledgements = 0;
+        var resultsReceived = 0;
+        coordinator.ResultReceived += (_, _) => resultsReceived++;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                acknowledgements++;
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            },
+            command: "get_referential_integrity",
+            parametersJson: "{}");
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.True(sent!.Ok);
+        Assert.Same(
+            data.ReferentialIntegrityResult,
+            Assert.IsType<ReferentialIntegrityResult>(sent.Result));
+        Assert.Equal(1, data.ReferentialIntegrityCalls);
+        Assert.Equal("FAKE_COOKIE", data.LastCookie);
+        Assert.Equal(CreateSettings(), data.LastSettings);
+        Assert.Equal(0, data.VdatetimeCalls);
+        Assert.Equal(1, acknowledgements);
+        Assert.Equal(0, resultsReceived);
+    }
+
+    [Theory]
+    [InlineData("get_plu_page", "{}")]
+    [InlineData("get_plu", """{"upc":"00000000000001"}""")]
+    public async Task Coordinator_NewCommandsApplyParameterDefaults(
+        string command,
+        string parametersJson)
+    {
+        var data = new FakeDataService();
+        var coordinator = CreateCoordinator(data: data);
+        BridgeAcknowledgement? sent = null;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            },
+            command,
+            parametersJson);
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.True(sent!.Ok);
+        if (command == "get_plu_page")
+        {
+            Assert.Equal(new PluPageQuery(1, 100), data.LastPluPageQuery);
+        }
+        else
+        {
+            Assert.Equal(
+                new PluLookupQuery("00000000000001", "000"),
+                data.LastPluLookupQuery);
+        }
+    }
+
+    [Theory]
+    [InlineData("get_plu_page", """{"page":0}""")]
+    [InlineData("get_plu", "{}")]
+    [InlineData("get_referential_integrity", """{"dataset":"fees"}""")]
+    public async Task Coordinator_InvalidNewCommandParametersFailBeforeSettingsOrPosWork(
+        string command,
+        string parametersJson)
+    {
+        var settingsService = new FakeSettingsService(CreateSettings());
+        var authentication = new FakeAuthenticationService();
+        var data = new FakeDataService();
+        var coordinator = CreateCoordinator(
+            settingsService,
+            authentication,
+            data);
+        BridgeAcknowledgement? sent = null;
+        var acknowledgements = 0;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                acknowledgements++;
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            },
+            command,
+            parametersJson);
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.False(sent!.Ok);
+        Assert.StartsWith("INVALID_ACTION:", sent.Error, StringComparison.Ordinal);
+        Assert.Equal(0, settingsService.LoadCalls);
+        Assert.Equal(0, authentication.Calls);
+        Assert.Equal(0, data.OperationCalls);
+        Assert.Equal(1, acknowledgements);
+    }
+
+    [Theory]
+    [InlineData("get_plu_page", "{}")]
+    [InlineData("get_plu", """{"upc":"00000000000001"}""")]
+    [InlineData("get_referential_integrity", "{}")]
+    public async Task Coordinator_NewCommandExpiredCookieLogsInAndRetriesOnce(
+        string command,
+        string parametersJson)
+    {
+        var settings = CreateSettings() with { PosCookie = "FAKE_EXPIRED_COOKIE" };
+        var settingsService = new FakeSettingsService(settings);
+        var authentication = new FakeAuthenticationService();
+        var data = new FakeDataService { FailFirstWithAuthError = true };
+        var coordinator = CreateCoordinator(
+            settingsService,
+            authentication,
+            data);
+        BridgeAcknowledgement? sent = null;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            },
+            command,
+            parametersJson);
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.True(sent!.Ok);
+        Assert.Equal(1, authentication.Calls);
+        Assert.Equal(2, data.OperationCalls);
+        Assert.Equal("FAKE_NEW_COOKIE", settingsService.Settings!.PosCookie);
+    }
+
+    [Theory]
+    [InlineData("get_current_data", "{}")]
+    [InlineData("get_plu_page", "{}")]
+    [InlineData("get_plu", """{"upc":"00000000000001"}""")]
+    [InlineData("get_referential_integrity", "{}")]
+    public async Task Coordinator_SecondExpiryIsReturnedWithoutAnotherRefresh(
+        string command,
+        string parametersJson)
+    {
+        var settings = CreateSettings() with { PosCookie = "FAKE_EXPIRED_COOKIE" };
+        var settingsService = new FakeSettingsService(settings);
+        var authentication = new FakeAuthenticationService();
+        var data = new FakeDataService { AlwaysFailWithAuthError = true };
+        var coordinator = CreateCoordinator(
+            settingsService,
+            authentication,
+            data);
+        BridgeAcknowledgement? sent = null;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            },
+            command,
+            parametersJson);
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.False(sent!.Ok);
+        Assert.StartsWith("POS_AUTH_EXPIRED:", sent.Error, StringComparison.Ordinal);
+        Assert.Equal(1, authentication.Calls);
+        Assert.Equal(2, data.OperationCalls);
+        Assert.Equal("FAKE_NEW_COOKIE", settingsService.Settings!.PosCookie);
+    }
+
+    [Fact]
+    public async Task Coordinator_RejectsSerializedPayloadAtOneMiB()
+    {
+        var data = new FakeDataService
+        {
+            PluPageResult = new PluPageResult
+            {
+                Page = 1,
+                TotalPages = 1,
+                RequestedPageSize = 1,
+                ItemCount = 1,
+                Products =
+                [
+                    new PluProduct
+                    {
+                        Upc = "1",
+                        UpcModifier = "000",
+                        Description = new string('X', 1024 * 1024),
+                        DepartmentId = "1",
+                    },
+                ],
+                FetchedAtUtc = DateTimeOffset.UnixEpoch,
+            },
+        };
+        var coordinator = CreateCoordinator(data: data);
+        BridgeAcknowledgement? sent = null;
+        var acknowledgements = 0;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                acknowledgements++;
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            },
+            command: "get_plu_page",
+            parametersJson: "{}");
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.False(sent!.Ok);
+        Assert.StartsWith("PAYLOAD_TOO_LARGE:", sent.Error, StringComparison.Ordinal);
+        Assert.Equal(1, data.PluPageCalls);
+        Assert.Equal(1, acknowledgements);
+    }
+
+    [Fact]
+    public async Task Coordinator_DuplicateNewActionsShareOnePosExecution()
+    {
+        var started = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var data = new FakeDataService
+        {
+            OperationStarted = started,
+            ReleaseOperation = release,
+        };
+        var coordinator = CreateCoordinator(data: data);
+        BridgeAcknowledgement? firstAcknowledgement = null;
+        BridgeAcknowledgement? secondAcknowledgement = null;
+        const string actionId = "duplicate-plu-action";
+        BridgeActionContext firstContext = CreateActionContext(
+            acknowledgement =>
+            {
+                firstAcknowledgement = acknowledgement;
+                return Task.CompletedTask;
+            },
+            "get_plu_page",
+            "{}",
+            actionId);
+        BridgeActionContext secondContext = CreateActionContext(
+            acknowledgement =>
+            {
+                secondAcknowledgement = acknowledgement;
+                return Task.CompletedTask;
+            },
+            "get_plu_page",
+            "{}",
+            actionId);
+
+        Task first = coordinator.HandleActionAsync(firstContext, CancellationToken.None);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Task second = coordinator.HandleActionAsync(secondContext, CancellationToken.None);
+        release.SetResult(true);
+        await Task.WhenAll(first, second);
+
+        Assert.Equal(1, data.PluPageCalls);
+        Assert.True(firstAcknowledgement!.Ok);
+        Assert.True(secondAcknowledgement!.Ok);
+    }
+
+    [Fact]
+    public async Task Coordinator_CallerCancellationDoesNotCancelSharedExecution()
+    {
+        var started = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var data = new FakeDataService
+        {
+            OperationStarted = started,
+            ReleaseOperation = release,
+        };
+        var coordinator = CreateCoordinator(data: data);
+        using var callerCancellation = new CancellationTokenSource();
+        BridgeAcknowledgement? cancelledAcknowledgement = null;
+        BridgeAcknowledgement? sharedAcknowledgement = null;
+        const string actionId = "caller-cancelled-action";
+        BridgeActionContext cancelledContext = CreateActionContext(
+            acknowledgement =>
+            {
+                cancelledAcknowledgement = acknowledgement;
+                return Task.CompletedTask;
+            },
+            "get_plu_page",
+            "{}",
+            actionId);
+        BridgeActionContext sharedContext = CreateActionContext(
+            acknowledgement =>
+            {
+                sharedAcknowledgement = acknowledgement;
+                return Task.CompletedTask;
+            },
+            "get_plu_page",
+            "{}",
+            actionId);
+
+        Task cancelled = coordinator.HandleActionAsync(
+            cancelledContext,
+            callerCancellation.Token);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Task shared = coordinator.HandleActionAsync(sharedContext, CancellationToken.None);
+        callerCancellation.Cancel();
+        await cancelled;
+        release.SetResult(true);
+        await shared;
+
+        Assert.Equal(1, data.PluPageCalls);
+        Assert.False(cancelledAcknowledgement!.Ok);
+        Assert.True(sharedAcknowledgement!.Ok);
+    }
+
+    [Fact]
+    public async Task Coordinator_NewCommandDeadlineCancelsPosWorkAndAcknowledgesOnce()
+    {
+        var data = new FakeDataService
+        {
+            ReleaseOperation = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously),
+        };
+        var coordinator = CreateCoordinator(
+            data: data,
+            options: new BridgeOptions
+            {
+                CommandDeadline = TimeSpan.FromMilliseconds(20),
+            });
+        BridgeAcknowledgement? sent = null;
+        var acknowledgements = 0;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                acknowledgements++;
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            },
+            "get_plu_page");
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.False(sent!.Ok);
+        Assert.StartsWith("POS_TIMEOUT:", sent.Error, StringComparison.Ordinal);
+        Assert.Equal(1, data.PluPageCalls);
+        Assert.Equal(1, acknowledgements);
+    }
+
+    [Fact]
     public async Task Coordinator_SecondLoginRequiredDoesNotStartAnotherRefresh()
     {
         var settings = CreateSettings() with
@@ -163,11 +606,14 @@ public sealed class ExecutionAndBridgeTests
     [Fact]
     public async Task Coordinator_UnsupportedCommandAcknowledgesFailure()
     {
+        var settingsService = new FakeSettingsService(CreateSettings());
+        var authentication = new FakeAuthenticationService();
+        var data = new FakeDataService();
         var bridge = new FakeBridgeClient { Registered = true };
         var coordinator = new ConnectorCoordinator(
-            new FakeSettingsService(CreateSettings()),
-            new FakeAuthenticationService(),
-            new FakeDataService(),
+            settingsService,
+            authentication,
+            data,
             bridge,
             new ActionExecutionRegistry(
                 TimeProvider.System,
@@ -189,6 +635,9 @@ public sealed class ExecutionAndBridgeTests
 
         Assert.False(sent!.Ok);
         Assert.StartsWith("UNSUPPORTED_COMMAND:", sent.Error, StringComparison.Ordinal);
+        Assert.Equal(0, settingsService.LoadCalls);
+        Assert.Equal(0, authentication.Calls);
+        Assert.Equal(0, data.OperationCalls);
     }
 
     [Fact]
@@ -264,20 +713,41 @@ public sealed class ExecutionAndBridgeTests
 
     private static BridgeActionContext CreateActionContext(
         Func<BridgeAcknowledgement, Task> acknowledge,
-        string command = "get_current_data")
+        string command = "get_current_data",
+        string parametersJson = "{}",
+        string? actionId = null,
+        CancellationToken sessionCancellationToken = default)
     {
-        using JsonDocument document = JsonDocument.Parse("{}");
+        using JsonDocument document = JsonDocument.Parse(parametersJson);
         return new BridgeActionContext(
             new BridgeAction
             {
-                ActionId = Guid.NewGuid().ToString(),
+                ActionId = actionId ?? Guid.NewGuid().ToString(),
                 Command = command,
                 Params = document.RootElement.Clone(),
                 Timestamp = DateTimeOffset.UtcNow,
             },
             (value, _) => acknowledge(value),
-            CancellationToken.None);
+            sessionCancellationToken);
     }
+
+    private static ConnectorCoordinator CreateCoordinator(
+        FakeSettingsService? settingsService = null,
+        FakeAuthenticationService? authentication = null,
+        FakeDataService? data = null,
+        BridgeOptions? options = null) =>
+        new(
+            settingsService ?? new FakeSettingsService(CreateSettings()),
+            authentication ?? new FakeAuthenticationService(),
+            data ?? new FakeDataService(),
+            new FakeBridgeClient { Registered = true },
+            new ActionExecutionRegistry(
+                TimeProvider.System,
+                CancellationToken.None),
+            options ?? new BridgeOptions(),
+            TimeProvider.System,
+            NullLogger<ConnectorCoordinator>.Instance,
+            CancellationToken.None);
 
     private static ConnectorSettings CreateSettings() =>
         new()
@@ -293,9 +763,13 @@ public sealed class ExecutionAndBridgeTests
         : ISecureSettingsService
     {
         public ConnectorSettings? Settings { get; private set; } = settings;
+        public int LoadCalls { get; private set; }
 
-        public Task<ConnectorSettings?> LoadAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(Settings);
+        public Task<ConnectorSettings?> LoadAsync(CancellationToken cancellationToken)
+        {
+            LoadCalls++;
+            return Task.FromResult(Settings);
+        }
 
         public Task SaveAsync(
             ConnectorSettings value,
@@ -332,25 +806,55 @@ public sealed class ExecutionAndBridgeTests
 
     private sealed class FakeDataService : IPosDataService
     {
-        public int Calls { get; private set; }
+        public int Calls => VdatetimeCalls;
+        public int OperationCalls { get; private set; }
+        public int VdatetimeCalls { get; private set; }
+        public int PluPageCalls { get; private set; }
+        public int PluLookupCalls { get; private set; }
+        public int ReferentialIntegrityCalls { get; private set; }
         public bool FailFirstWithAuthError { get; init; }
         public bool AlwaysFailWithAuthError { get; init; }
+        public PluPageQuery? LastPluPageQuery { get; private set; }
+        public PluLookupQuery? LastPluLookupQuery { get; private set; }
+        public ConnectorSettings? LastSettings { get; private set; }
+        public string? LastCookie { get; private set; }
+        public TaskCompletionSource<bool>? OperationStarted { get; init; }
+        public TaskCompletionSource<bool>? ReleaseOperation { get; init; }
+        public PluPageResult PluPageResult { get; init; } = new()
+        {
+            Page = 1,
+            TotalPages = 1,
+            RequestedPageSize = 100,
+            ItemCount = 0,
+            FetchedAtUtc = DateTimeOffset.UnixEpoch,
+        };
+        public PluLookupResult PluLookupResult { get; init; } = new()
+        {
+            RequestedUpc = "00000000000001",
+            RequestedUpcModifier = "000",
+            Found = false,
+            FetchedAtUtc = DateTimeOffset.UnixEpoch,
+        };
+        public ReferentialIntegrityResult ReferentialIntegrityResult { get; init; } =
+            new()
+            {
+                SiteId = "6720",
+                Limits = new ReferentialIntegrityLimits
+                {
+                    MaxRecords = 100,
+                    MaxFeesPerItem = 10,
+                },
+                FetchedAtUtc = DateTimeOffset.UnixEpoch,
+            };
 
-        public Task<VdatetimeResult> GetVdatetimeAsync(
+        public async Task<VdatetimeResult> GetVdatetimeAsync(
             ConnectorSettings settings,
             string cookie,
             CancellationToken cancellationToken)
         {
-            Calls++;
-            if (AlwaysFailWithAuthError ||
-                (FailFirstWithAuthError && Calls == 1))
-            {
-                throw new PosAuthenticationException(
-                    "POS_AUTH_EXPIRED",
-                    "Expired.");
-            }
-
-            return Task.FromResult(new VdatetimeResult
+            VdatetimeCalls++;
+            CaptureArguments(settings, cookie);
+            return await CompleteOperationAsync(new VdatetimeResult
             {
                 SiteId = "6720",
                 SystemDateTime = "2026-07-31T12:00:00Z",
@@ -358,31 +862,72 @@ public sealed class ExecutionAndBridgeTests
                 TimeZones = [],
                 RawXml = "<sysDateTime />",
                 FetchedAtUtc = DateTimeOffset.UtcNow,
-            });
+            }, cancellationToken);
         }
 
-        public Task<PluPageResult> GetPluPageAsync(
+        public async Task<PluPageResult> GetPluPageAsync(
             ConnectorSettings settings,
             string cookie,
             PluPageQuery query,
-            CancellationToken cancellationToken) =>
-            throw new InvalidOperationException(
-                "PLU page data is not expected by these tests.");
+            CancellationToken cancellationToken)
+        {
+            PluPageCalls++;
+            LastPluPageQuery = query;
+            CaptureArguments(settings, cookie);
+            return await CompleteOperationAsync(PluPageResult, cancellationToken);
+        }
 
-        public Task<PluLookupResult> GetPluAsync(
+        public async Task<PluLookupResult> GetPluAsync(
             ConnectorSettings settings,
             string cookie,
             PluLookupQuery query,
-            CancellationToken cancellationToken) =>
-            throw new InvalidOperationException(
-                "PLU lookup data is not expected by these tests.");
+            CancellationToken cancellationToken)
+        {
+            PluLookupCalls++;
+            LastPluLookupQuery = query;
+            CaptureArguments(settings, cookie);
+            return await CompleteOperationAsync(PluLookupResult, cancellationToken);
+        }
 
-        public Task<ReferentialIntegrityResult> GetReferentialIntegrityAsync(
+        public async Task<ReferentialIntegrityResult> GetReferentialIntegrityAsync(
             ConnectorSettings settings,
             string cookie,
-            CancellationToken cancellationToken) =>
-            throw new InvalidOperationException(
-                "Referential data is not expected by these tests.");
+            CancellationToken cancellationToken)
+        {
+            ReferentialIntegrityCalls++;
+            CaptureArguments(settings, cookie);
+            return await CompleteOperationAsync(
+                ReferentialIntegrityResult,
+                cancellationToken);
+        }
+
+        private void CaptureArguments(ConnectorSettings settings, string cookie)
+        {
+            LastSettings = settings;
+            LastCookie = cookie;
+        }
+
+        private async Task<T> CompleteOperationAsync<T>(
+            T result,
+            CancellationToken cancellationToken)
+        {
+            OperationCalls++;
+            OperationStarted?.TrySetResult(true);
+            if (AlwaysFailWithAuthError ||
+                (FailFirstWithAuthError && OperationCalls == 1))
+            {
+                throw new PosAuthenticationException(
+                    "POS_AUTH_EXPIRED",
+                    "Expired.");
+            }
+
+            if (ReleaseOperation is not null)
+            {
+                await ReleaseOperation.Task.WaitAsync(cancellationToken);
+            }
+
+            return result;
+        }
     }
 
     private sealed class FakeBridgeClient : IBridgeSocketClient

@@ -215,9 +215,21 @@ public sealed class ConnectorCoordinator : IAsyncDisposable
         CancellationToken sessionToken,
         CancellationToken sharedToken)
     {
-        if (!action.Command.Equals(
-            "get_current_data",
-            StringComparison.Ordinal))
+        Func<ConnectorSettings, string, CancellationToken, Task<object>>? operation =
+            action.Command switch
+            {
+                "get_current_data" => async (settings, cookie, token) =>
+                    await _dataService.GetVdatetimeAsync(
+                        settings,
+                        cookie,
+                        token).ConfigureAwait(false),
+                "get_plu_page" => CreatePluPageOperation(action.Params),
+                "get_plu" => CreatePluLookupOperation(action.Params),
+                "get_referential_integrity" =>
+                    CreateReferentialIntegrityOperation(action.Params),
+                _ => null,
+            };
+        if (operation is null)
         {
             return BridgeAcknowledgement.Failure(
                 "UNSUPPORTED_COMMAND: Only get_current_data is supported.");
@@ -247,8 +259,9 @@ public sealed class ConnectorCoordinator : IAsyncDisposable
             await _posSessionGate.WaitAsync(token).ConfigureAwait(false);
             try
             {
-                VdatetimeResult result = await GetWithOneRefreshAsync(
+                object result = await GetWithOneRefreshAsync(
                     settings,
+                    operation,
                     token).ConfigureAwait(false);
                 byte[] payload = JsonSerializer.SerializeToUtf8Bytes(
                     result,
@@ -266,7 +279,11 @@ public sealed class ConnectorCoordinator : IAsyncDisposable
                     LastCommandTimestamp = _timeProvider.GetUtcNow(),
                     Message = "Command completed.",
                 });
-                ResultReceived?.Invoke(this, result);
+                if (result is VdatetimeResult vdatetimeResult)
+                {
+                    ResultReceived?.Invoke(this, vdatetimeResult);
+                }
+
                 _logger.LogInformation(
                     "Command completed for action {ActionId} in {ElapsedMilliseconds} ms",
                     action.ActionId,
@@ -292,32 +309,77 @@ public sealed class ConnectorCoordinator : IAsyncDisposable
         }
     }
 
-    private async Task<VdatetimeResult> GetWithOneRefreshAsync(
+    private Func<ConnectorSettings, string, CancellationToken, Task<object>>
+        CreatePluPageOperation(JsonElement parameters)
+    {
+        PluPageQuery query = BridgeActionParameterReader.ReadPluPage(parameters);
+        return async (settings, cookie, token) =>
+            await _dataService.GetPluPageAsync(
+                settings,
+                cookie,
+                query,
+                token).ConfigureAwait(false);
+    }
+
+    private Func<ConnectorSettings, string, CancellationToken, Task<object>>
+        CreatePluLookupOperation(JsonElement parameters)
+    {
+        PluLookupQuery query = BridgeActionParameterReader.ReadPluLookup(parameters);
+        return async (settings, cookie, token) =>
+            await _dataService.GetPluAsync(
+                settings,
+                cookie,
+                query,
+                token).ConfigureAwait(false);
+    }
+
+    private Func<ConnectorSettings, string, CancellationToken, Task<object>>
+        CreateReferentialIntegrityOperation(JsonElement parameters)
+    {
+        BridgeActionParameterReader.ValidateEmpty(
+            parameters,
+            "get_referential_integrity");
+        return async (settings, cookie, token) =>
+            await _dataService.GetReferentialIntegrityAsync(
+                settings,
+                cookie,
+                token).ConfigureAwait(false);
+    }
+
+    private async Task<T> GetWithOneRefreshAsync<T>(
         ConnectorSettings settings,
+        Func<ConnectorSettings, string, CancellationToken, Task<T>> operation,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(settings.PosCookie))
         {
-            return await RefreshAndGetAsync(settings, cancellationToken)
+            return await RefreshAndGetAsync(
+                settings,
+                operation,
+                cancellationToken)
                 .ConfigureAwait(false);
         }
 
         try
         {
-            return await _dataService.GetVdatetimeAsync(
+            return await operation(
                 settings,
                 settings.PosCookie,
                 cancellationToken).ConfigureAwait(false);
         }
         catch (PosAuthenticationException)
         {
-            return await RefreshAndGetAsync(settings, cancellationToken)
+            return await RefreshAndGetAsync(
+                settings,
+                operation,
+                cancellationToken)
                 .ConfigureAwait(false);
         }
     }
 
-    private async Task<VdatetimeResult> RefreshAndGetAsync(
+    private async Task<T> RefreshAndGetAsync<T>(
         ConnectorSettings settings,
+        Func<ConnectorSettings, string, CancellationToken, Task<T>> operation,
         CancellationToken cancellationToken)
     {
         UpdateStatus(CurrentStatus with
@@ -331,7 +393,7 @@ public sealed class ConnectorCoordinator : IAsyncDisposable
         ConnectorSettings updated = settings with { PosCookie = session.Cookie };
         await _settingsService.SaveAsync(updated, cancellationToken)
             .ConfigureAwait(false);
-        return await _dataService.GetVdatetimeAsync(
+        return await operation(
             updated,
             session.Cookie,
             cancellationToken).ConfigureAwait(false);
