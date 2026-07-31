@@ -47,6 +47,11 @@ public sealed class DocumentationTests
         Assert.Contains("`register_client`", guide, StringComparison.Ordinal);
         Assert.Contains("`localhost_agent`", guide, StringComparison.Ordinal);
         Assert.Contains("`session_replaced`", guide, StringComparison.Ordinal);
+        Assert.Contains("\"ok\": true", guide, StringComparison.Ordinal);
+        Assert.Contains("\"code\": \"REGISTERED\"", guide, StringComparison.Ordinal);
+        Assert.Contains("\"data\": { \"room\": \"FAKE-REGISTERED-ROOM\", \"clientType\": \"localhost_agent\" }", guide, StringComparison.Ordinal);
+        Assert.Contains("data` is non-null", guide, StringComparison.Ordinal);
+        Assert.Contains("Only after this acknowledgement", guide, StringComparison.Ordinal);
         Assert.Contains("exactly once", guide, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("10 seconds", guide, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("one MiB", guide, StringComparison.OrdinalIgnoreCase);
@@ -86,7 +91,10 @@ public sealed class DocumentationTests
                      "UNSUPPORTED_COMMAND",
                      "NOT_REGISTERED",
                      "SETTINGS_MISSING",
+                     "SETTINGS_CORRUPT",
                      "SETTINGS_SAVE_FAILED",
+                     "SETTINGS_ENCRYPTION_FAILED",
+                     "SETTINGS_DECRYPTION_FAILED",
                      "POS_AUTH_EXPIRED",
                      "POS_LOGIN_FAILED",
                      "POS_TIMEOUT",
@@ -150,18 +158,21 @@ public sealed class DocumentationTests
             Assert.True(HasConnectorToPosReference(guide, request));
         }
 
-        foreach (string limit in new[]
+        foreach (string optionalLimit in new[]
                  {
-                     "\"taxRates\": { \"maxRecords\": 10 }",
-                     "\"departments\": { \"maxRecords\": 20 }",
-                     "\"prodCodes\": { \"maxRecords\": 30 }",
-                     "\"ageValidations\": { \"maxRecords\": 8 }",
-                     "\"blueLaws\": { \"maxRecords\": 0 }",
-                     "\"fees\": { \"maxRecords\": 25, \"maxFeesPerItem\": 3 }",
+                     "taxRates?: DatasetLimit;",
+                     "departments?: DatasetLimit;",
+                     "prodCodes?: DatasetLimit;",
+                     "ageValidations?: DatasetLimit;",
+                     "blueLaws?: DatasetLimit;",
+                     "fees?: DatasetLimit;",
                  })
         {
-            Assert.Contains(limit, guide, StringComparison.Ordinal);
+            Assert.Contains(optionalLimit, guide, StringComparison.Ordinal);
         }
+
+        Assert.Contains("six possible limit entries", guide, StringComparison.Ordinal);
+        Assert.Contains("null-safe handling", guide, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -232,9 +243,19 @@ public sealed class DocumentationTests
             "new Promise<AgentAck<T>>((resolve, reject) => {",
             guide,
             StringComparison.Ordinal);
-        Assert.Contains("socket.timeout(10_000)", guide, StringComparison.Ordinal);
+        Assert.Contains("function isAgentAcknowledgement<T>(", guide, StringComparison.Ordinal);
+        Assert.Contains("candidate.result !== null", guide, StringComparison.Ordinal);
+        Assert.Contains("typeof candidate.result === \"object\"", guide, StringComparison.Ordinal);
+        Assert.Contains("candidate.error === undefined", guide, StringComparison.Ordinal);
+        Assert.Contains("candidate.ok === false", guide, StringComparison.Ordinal);
+        Assert.Contains("typeof candidate.error === \"string\"", guide, StringComparison.Ordinal);
+        Assert.Contains("candidate.error.length > 0", guide, StringComparison.Ordinal);
+        Assert.Contains("candidate.result === undefined", guide, StringComparison.Ordinal);
+        Assert.Contains("socket.timeout(9_000)", guide, StringComparison.Ordinal);
+        Assert.Contains("one second shorter", guide, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("for (let page = 1;", guide, StringComparison.Ordinal);
-        Assert.Contains("actionId: crypto.randomUUID(),", guide, StringComparison.Ordinal);
+        Assert.Contains("const actionId = crypto.randomUUID();", guide, StringComparison.Ordinal);
+        Assert.Contains("actionId,", guide, StringComparison.Ordinal);
         Assert.Contains("a distinct action ID per page.", guide, StringComparison.Ordinal);
         Assert.Contains(
             "retry that same logical page with its original action ID.",

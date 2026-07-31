@@ -50,6 +50,16 @@ put a full license value in browser URLs, logs, analytics, or client-side
 state. `session_replaced` is terminal for the older agent until manual
 reconnection.
 
+Registration succeeds only with this acknowledgement shape:
+
+```json
+{ "ok": true, "code": "REGISTERED", "data": { "room": "FAKE-REGISTERED-ROOM", "clientType": "localhost_agent" } }
+```
+
+`ok` must be `true`, `code` must be `REGISTERED`, `data` is non-null, and
+`data.clientType` must be `localhost_agent`. Only after this acknowledgement
+is the agent registered and eligible to receive actions.
+
 ### Action envelope and acknowledgement
 
 The bridge sends each command as `execute_local_action` with this exact shape:
@@ -114,12 +124,37 @@ type AgentAck<T> =
   | { ok: true; result: T }
   | { ok: false; error: string };
 
+function isAgentAcknowledgement<T>(
+  acknowledgement: unknown,
+): acknowledgement is AgentAck<T> {
+  if (!acknowledgement || typeof acknowledgement !== "object") {
+    return false;
+  }
+
+  const candidate = acknowledgement as {
+    ok?: unknown;
+    result?: unknown;
+    error?: unknown;
+  };
+
+  if (candidate.ok === true) {
+    return candidate.result !== null &&
+      typeof candidate.result === "object" &&
+      candidate.error === undefined;
+  }
+
+  return candidate.ok === false &&
+    typeof candidate.error === "string" &&
+    candidate.error.length > 0 &&
+    candidate.result === undefined;
+}
+
 async function executeAgentAction<T>(
   socket: RegisteredAgentSocket,
   action: AgentAction,
 ): Promise<AgentAck<T>> {
   return await new Promise<AgentAck<T>>((resolve, reject) => {
-    socket.timeout(10_000).emit(
+    socket.timeout(9_000).emit(
       "execute_local_action",
       action,
       (timeoutError: Error | null, acknowledgement?: AgentAck<T>) => {
@@ -128,7 +163,7 @@ async function executeAgentAction<T>(
           return;
         }
 
-        if (!acknowledgement || typeof acknowledgement.ok !== "boolean") {
+        if (!isAgentAcknowledgement<T>(acknowledgement)) {
           reject(new Error("Connector acknowledgement was invalid."));
           return;
         }
@@ -143,6 +178,10 @@ async function executeAgentAction<T>(
 `RegisteredAgentSocket` means the trusted socket returned by the cloud
 bridge's registered-agent lookup. It is not a browser-provided socket and its
 lookup key is an internal connector/license identity.
+
+The application timeout is 9 seconds—one second shorter than the connector's
+10-second Socket.IO acknowledgement boundary—so the backend can return its
+own timeout response before the transport boundary expires.
 
 ## Result types shared with the backend
 
@@ -391,9 +430,12 @@ Parameters must be `{}`; no parameter properties are accepted.
 }
 ```
 
-It returns `AgentAck<ReferentialIntegrityResult>`. A successful response has
-all six dataset-limit entries and arrays for tax rates, departments, product
-codes, age validations, fees, and blue laws:
+It returns `AgentAck<ReferentialIntegrityResult>`. `limits` is present, but
+the POS can omit data containers, so each limit entry is nullable/optional.
+The following illustrative response shows all six possible limit entries and
+arrays for tax rates, departments, product codes, age validations, fees, and
+blue laws. Use null-safe handling for every limit entry and treat missing data
+containers as absent rather than as a failed action:
 
 ```json
 {
@@ -444,8 +486,9 @@ async function getAllPluPages(socket: RegisteredAgentSocket) {
   const products: PluProduct[] = [];
 
   for (let page = 1; ; page += 1) {
+    const actionId = crypto.randomUUID();
     const acknowledgement = await executeAgentAction<PluPageResult>(socket, {
-      actionId: crypto.randomUUID(),
+      actionId,
       command: "get_plu_page",
       params: { page, pageSize: 100 },
       timestamp: new Date().toISOString(),
@@ -484,7 +527,10 @@ must branch only on the prefix before the first colon.
 | `UNSUPPORTED_COMMAND` | The command is not implemented by this connector. |
 | `NOT_REGISTERED` | The connector is not registered with the bridge. |
 | `SETTINGS_MISSING` | Connector settings are unavailable. |
+| `SETTINGS_CORRUPT` | Connector settings could not be read safely. |
 | `SETTINGS_SAVE_FAILED` | The connector could not persist settings. |
+| `SETTINGS_ENCRYPTION_FAILED` | Connector settings could not be encrypted. |
+| `SETTINGS_DECRYPTION_FAILED` | Connector settings could not be decrypted. |
 | `POS_AUTH_EXPIRED` | The saved or retried POS session is invalid. |
 | `POS_LOGIN_FAILED` | The POS rejected or failed the login. |
 | `POS_TIMEOUT` | The POS did not respond before the deadline. |
