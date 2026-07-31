@@ -89,19 +89,29 @@ public sealed class PosDataService : IPosDataService
 
     private static bool LooksLikeSessionExpiry(string xml)
     {
-        string text;
+        System.Xml.Linq.XDocument document;
         try
         {
-            text = string.Join(
-                " ",
-                SecureXml.Parse(xml).DescendantNodes().OfType<System.Xml.Linq.XText>()
-                    .Select(node => node.Value));
+            document = SecureXml.Parse(xml);
         }
         catch (PosResponseException)
         {
             return false;
         }
 
+        PosXmlFaultDetails details =
+            PosXmlFaultInspector.Inspect(document);
+        if (details.IsLoginRequired)
+        {
+            return true;
+        }
+
+        string text = string.Join(
+            " ",
+            document
+                .DescendantNodes()
+                .OfType<System.Xml.Linq.XText>()
+                .Select(node => node.Value));
         return AuthenticationSubjects.Any(subject =>
                    text.Contains(subject, StringComparison.OrdinalIgnoreCase)) &&
                FailureIndicators.Any(indicator =>

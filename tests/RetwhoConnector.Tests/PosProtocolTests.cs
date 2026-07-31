@@ -167,6 +167,78 @@ public sealed class PosProtocolTests
         Assert.Equal("POS_AUTH_EXPIRED", exception.Code);
     }
 
+    [Fact]
+    public async Task PosData_LoginRequiredFaultMapsToSessionExpiry()
+    {
+        var handler = new FakeHttpMessageHandler(
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    Fixture("pos-login-required.xml"),
+                    Encoding.UTF8,
+                    "text/xml"),
+            });
+        using var client = new HttpClient(handler);
+        var options = new PosOptions();
+        var service = new PosDataService(
+            client,
+            new PosHttpRequestFactory(options),
+            new PosResponseReader(),
+            new VdatetimeXmlMapper(),
+            options,
+            TimeProvider.System);
+
+        PosAuthenticationException exception =
+            await Assert.ThrowsAsync<PosAuthenticationException>(
+                () => service.GetVdatetimeAsync(
+                    CreateSettings(),
+                    "FAKE_EXPIRED_COOKIE",
+                    CancellationToken.None));
+
+        Assert.Equal("POS_AUTH_EXPIRED", exception.Code);
+        Assert.Equal(1, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task PosData_UnrelatedFaultRemainsInvalidResponse()
+    {
+        const string xml =
+            """
+            <VFI:Response xmlns:VFI="urn:vfi-sapphire:np.domain.2001-07-01">
+              <VFI:Fault>
+                <faultCode>CGIPortal.InvalidCommand</faultCode>
+                <faultString>Command unavailable</faultString>
+              </VFI:Fault>
+            </VFI:Response>
+            """;
+        var handler = new FakeHttpMessageHandler(
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    xml,
+                    Encoding.UTF8,
+                    "text/xml"),
+            });
+        using var client = new HttpClient(handler);
+        var options = new PosOptions();
+        var service = new PosDataService(
+            client,
+            new PosHttpRequestFactory(options),
+            new PosResponseReader(),
+            new VdatetimeXmlMapper(),
+            options,
+            TimeProvider.System);
+
+        PosResponseException exception =
+            await Assert.ThrowsAsync<PosResponseException>(
+                () => service.GetVdatetimeAsync(
+                    CreateSettings(),
+                    "FAKE_COOKIE",
+                    CancellationToken.None));
+
+        Assert.Equal("POS_INVALID_RESPONSE", exception.Code);
+    }
+
     private static ConnectorSettings CreateSettings() =>
         new()
         {

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VFI:Response xmlns:VFI="urn:vfi-sapphire:np.domain.2001-07-01">
+  <VFI:Fault>
+    <faultCode>CGIPortal.LoginRequired</faultCode>
+    <faultString>CGIPortal Error</faultString>
+    <detail>
+      <e:vfiFault xmlns:e="urn:vfi-sapphire:np.domain.2001-07-01">
+        <e:message>No Credential for the User. Please login to get the Credential</e:message>
+      </e:vfiFault>
+    </detail>
+  </VFI:Fault>
+</VFI:Response>
