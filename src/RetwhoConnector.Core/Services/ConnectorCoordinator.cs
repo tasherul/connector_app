@@ -263,13 +263,22 @@ public sealed class ConnectorCoordinator : IAsyncDisposable
                     settings,
                     operation,
                     token).ConfigureAwait(false);
+                BridgeAcknowledgement acknowledgement = BridgeAcknowledgement.Success(result);
                 byte[] payload = JsonSerializer.SerializeToUtf8Bytes(
-                    result,
+                    acknowledgement,
                     ConnectorJson.Options);
                 if (payload.Length >= _options.MaximumPayloadBytes)
                 {
+                    const string payloadTooLarge =
+                        "PAYLOAD_TOO_LARGE: The POS result exceeds the bridge limit.";
+                    UpdateStatus(CurrentStatus with
+                    {
+                        LastCommand = LastCommandState.Failed,
+                        LastCommandTimestamp = _timeProvider.GetUtcNow(),
+                        Message = payloadTooLarge,
+                    });
                     return BridgeAcknowledgement.Failure(
-                        "PAYLOAD_TOO_LARGE: The POS result exceeds the bridge limit.");
+                        payloadTooLarge);
                 }
 
                 UpdateStatus(CurrentStatus with
@@ -288,7 +297,7 @@ public sealed class ConnectorCoordinator : IAsyncDisposable
                     "Command completed for action {ActionId} in {ElapsedMilliseconds} ms",
                     action.ActionId,
                     stopwatch.ElapsedMilliseconds);
-                return BridgeAcknowledgement.Success(result);
+                return acknowledgement;
             }
             finally
             {

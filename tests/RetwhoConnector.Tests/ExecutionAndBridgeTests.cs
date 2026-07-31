@@ -4,6 +4,7 @@ using RetwhoConnector.Core.Abstractions;
 using RetwhoConnector.Core.Configuration;
 using RetwhoConnector.Core.Exceptions;
 using RetwhoConnector.Core.Models;
+using RetwhoConnector.Core.Serialization;
 using RetwhoConnector.Core.Services;
 
 namespace RetwhoConnector.Tests;
@@ -337,29 +338,18 @@ public sealed class ExecutionAndBridgeTests
         Assert.Equal("FAKE_NEW_COOKIE", settingsService.Settings!.PosCookie);
     }
 
-    [Fact]
-    public async Task Coordinator_RejectsSerializedPayloadAtOneMiB()
+    [Theory]
+    [InlineData((1024 * 1024) - 1, true)]
+    [InlineData(1024 * 1024, false)]
+    [InlineData((1024 * 1024) + 1, false)]
+    public async Task Coordinator_EnforcesProspectiveAcknowledgementPayloadLimit(
+        int acknowledgementBytes,
+        bool expectedSuccess)
     {
         var data = new FakeDataService
         {
-            PluPageResult = new PluPageResult
-            {
-                Page = 1,
-                TotalPages = 1,
-                RequestedPageSize = 1,
-                ItemCount = 1,
-                Products =
-                [
-                    new PluProduct
-                    {
-                        Upc = "1",
-                        UpcModifier = "000",
-                        Description = new string('X', 1024 * 1024),
-                        DepartmentId = "1",
-                    },
-                ],
-                FetchedAtUtc = DateTimeOffset.UnixEpoch,
-            },
+            PluPageResult = CreatePluPageResultWithAcknowledgementBytes(
+                acknowledgementBytes),
         };
         var coordinator = CreateCoordinator(data: data);
         BridgeAcknowledgement? sent = null;
@@ -376,8 +366,20 @@ public sealed class ExecutionAndBridgeTests
 
         await coordinator.HandleActionAsync(context, CancellationToken.None);
 
-        Assert.False(sent!.Ok);
-        Assert.StartsWith("PAYLOAD_TOO_LARGE:", sent.Error, StringComparison.Ordinal);
+        Assert.Equal(expectedSuccess, sent!.Ok);
+        if (expectedSuccess)
+        {
+            Assert.Equal(LastCommandState.Completed, coordinator.CurrentStatus.LastCommand);
+        }
+        else
+        {
+            Assert.StartsWith(
+                "PAYLOAD_TOO_LARGE:",
+                sent.Error,
+                StringComparison.Ordinal);
+            Assert.Equal(LastCommandState.Failed, coordinator.CurrentStatus.LastCommand);
+        }
+
         Assert.Equal(1, data.PluPageCalls);
         Assert.Equal(1, acknowledgements);
     }
@@ -760,6 +762,51 @@ public sealed class ExecutionAndBridgeTests
             LicenseKey = "FAKE-LICENSE-001",
             PosCookie = "FAKE_COOKIE",
         };
+
+    private static PluPageResult CreatePluPageResultWithAcknowledgementBytes(
+        int acknowledgementBytes)
+    {
+        var result = new PluPageResult
+        {
+            Page = 1,
+            TotalPages = 1,
+            RequestedPageSize = 1,
+            ItemCount = 1,
+            Products =
+            [
+                new PluProduct
+                {
+                    Upc = "1",
+                    UpcModifier = "000",
+                    Description = string.Empty,
+                    DepartmentId = "1",
+                },
+            ],
+            FetchedAtUtc = DateTimeOffset.UnixEpoch,
+        };
+        int baseAcknowledgementBytes = JsonSerializer.SerializeToUtf8Bytes(
+            BridgeAcknowledgement.Success(result),
+            ConnectorJson.Options).Length;
+        result = result with
+        {
+            Products =
+            [
+                result.Products[0] with
+                {
+                    Description = new string(
+                        'X',
+                        acknowledgementBytes - baseAcknowledgementBytes),
+                },
+            ],
+        };
+
+        Assert.Equal(
+            acknowledgementBytes,
+            JsonSerializer.SerializeToUtf8Bytes(
+                BridgeAcknowledgement.Success(result),
+                ConnectorJson.Options).Length);
+        return result;
+    }
 
     private sealed class FakeSettingsService(ConnectorSettings? settings)
         : ISecureSettingsService
