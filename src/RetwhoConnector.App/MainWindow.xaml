@@ -2,16 +2,88 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:RetwhoConnector.App.Converters"
+        xmlns:vm="clr-namespace:RetwhoConnector.App.ViewModels"
         Title="Hybrid Edge Connector Agent"
         Width="1120"
         Height="760"
-        MinWidth="860"
+        MinWidth="720"
         MinHeight="600"
         WindowStartupLocation="CenterScreen"
         AutomationProperties.Name="Hybrid Edge Connector Agent dashboard">
     <Window.Resources>
-        <conv:StatusToBrushConverter x:Key="StatusBrush" />
+        <conv:DashboardSignalToBrushConverter x:Key="DashboardSignalBrush" />
         <conv:LogCategoryToBrushConverter x:Key="LogCategoryBrush" />
+        <conv:WidthToStatusColumnCountConverter
+            x:Key="WidthToStatusColumnCount" />
+        <DataTemplate x:Key="StatusRailSegmentTemplate"
+                      DataType="{x:Type vm:DashboardStatusItem}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Width="28"
+                        Height="28"
+                        Background="{DynamicResource SurfaceBrush}"
+                        CornerRadius="6"
+                        VerticalAlignment="Top">
+                    <Path x:Name="StatusIcon"
+                          Width="16"
+                          Height="16"
+                          Fill="{DynamicResource InfoBrush}"
+                          Stretch="Uniform" />
+                </Border>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="{Binding Title}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontSize="11"
+                               FontWeight="SemiBold" />
+                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                        <Ellipse Width="8"
+                                 Height="8"
+                                 Fill="{Binding Signal,
+                                        Converter={StaticResource DashboardSignalBrush}}"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,6,0" />
+                        <TextBlock Text="{Binding Status}"
+                                   FontWeight="SemiBold" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding Description}"
+                               ToolTip="{Binding Description}"
+                               Foreground="{DynamicResource MutedTextBrush}"
+                               FontSize="12"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap"
+                               Margin="0,3,0,0" />
+                </StackPanel>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IconKey}"
+                             Value="ConfigurationIconGeometry">
+                    <Setter TargetName="StatusIcon"
+                            Property="Data"
+                            Value="{StaticResource ConfigurationIconGeometry}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IconKey}"
+                             Value="CloudIconGeometry">
+                    <Setter TargetName="StatusIcon"
+                            Property="Data"
+                            Value="{StaticResource CloudIconGeometry}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IconKey}"
+                             Value="AgentIconGeometry">
+                    <Setter TargetName="StatusIcon"
+                            Property="Data"
+                            Value="{StaticResource AgentIconGeometry}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IconKey}"
+                             Value="LogsIconGeometry">
+                    <Setter TargetName="StatusIcon"
+                            Property="Data"
+                            Value="{StaticResource LogsIconGeometry}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
     </Window.Resources>
 
     <Grid Margin="24">
@@ -41,111 +113,63 @@
                        VerticalAlignment="Center">
                 <Button Content="Settings"
                         Command="{Binding OpenSettingsCommand}"
+                        Style="{StaticResource SettingsButtonStyle}"
                         AutomationProperties.Name="Open connection settings" />
                 <Button Content="{Binding ConnectionActionText}"
                         Command="{Binding ToggleConnectionCommand}"
+                        Style="{StaticResource ConnectionButtonStyle}"
                         AutomationProperties.Name="Connect or disconnect" />
                 <Button Content="Open Logs Folder"
-                        Command="{Binding OpenLogsFolderCommand}" />
+                        Command="{Binding OpenLogsFolderCommand}"
+                        Style="{StaticResource LogsButtonStyle}"
+                        AutomationProperties.Name="Open logs folder" />
                 <Button Content="Exit"
                         Command="{Binding ExitCommand}"
-                        Style="{StaticResource SecondaryButtonStyle}" />
+                        Style="{StaticResource DangerButtonStyle}"
+                        AutomationProperties.Name="Exit application" />
             </WrapPanel>
         </Grid>
 
-        <UniformGrid Grid.Row="1"
-                     Columns="4"
-                     Margin="0,22,0,16">
-            <Border Style="{StaticResource StatusCardStyle}"
-                    AutomationProperties.Name="Configuration status">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="42" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="🔧"
-                               FontSize="23"
-                               VerticalAlignment="Center"
-                               AutomationProperties.Name="Configuration" />
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="CONFIG"
-                                   Style="{StaticResource CardLabelStyle}" />
-                        <TextBlock Text="{Binding ConfigurationStatus}"
-                                   Foreground="{Binding ConfigurationStatus,
-                                       Converter={StaticResource StatusBrush}}"
-                                   Style="{StaticResource CardValueStyle}" />
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <Border Style="{StaticResource StatusCardStyle}"
-                    AutomationProperties.Name="Cloud server status">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="42" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="☁"
-                               FontSize="25"
-                               VerticalAlignment="Center"
-                               AutomationProperties.Name="Cloud server" />
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="CONNECTOR.RETWHO.COM"
-                                   Style="{StaticResource CardLabelStyle}" />
-                        <TextBlock Text="{Binding ServerStatus}"
-                                   Foreground="{Binding ServerStatus,
-                                       Converter={StaticResource StatusBrush}}"
-                                   Style="{StaticResource CardValueStyle}" />
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <Border Style="{StaticResource StatusCardStyle}"
-                    AutomationProperties.Name="Agent health status">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="42" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="⛨"
-                               FontSize="25"
-                               VerticalAlignment="Center"
-                               AutomationProperties.Name="Agent health" />
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="AGENT"
-                                   Style="{StaticResource CardLabelStyle}" />
-                        <TextBlock Text="{Binding AgentStatus}"
-                                   Foreground="{Binding AgentStatus,
-                                       Converter={StaticResource StatusBrush}}"
-                                   Style="{StaticResource CardValueStyle}" />
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <Border Style="{StaticResource StatusCardStyle}"
-                    AutomationProperties.Name="Logging health status">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="42" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="›_"
-                               FontFamily="Consolas"
-                               FontSize="22"
-                               FontWeight="Bold"
-                               VerticalAlignment="Center"
-                               AutomationProperties.Name="Logging" />
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="LOGS"
-                                   Style="{StaticResource CardLabelStyle}" />
-                        <TextBlock Text="{Binding LoggingStatus}"
-                                   Foreground="{Binding LoggingStatus,
-                                       Converter={StaticResource StatusBrush}}"
-                                   Style="{StaticResource CardValueStyle}" />
-                    </StackPanel>
-                </Grid>
-            </Border>
-        </UniformGrid>
+        <Border Grid.Row="1"
+                x:Name="ConnectorStatusRail"
+                Background="{DynamicResource SurfaceRaisedBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="10"
+                Margin="0,22,0,16"
+                Padding="4"
+                AutomationProperties.Name="Connector status rail container">
+            <UniformGrid Columns="{Binding ActualWidth,
+                                          RelativeSource={RelativeSource AncestorType={x:Type Window}},
+                                          Converter={StaticResource WidthToStatusColumnCount}}">
+                <Border BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="0,0,1,0"
+                        Padding="12">
+                    <ContentControl Content="{Binding ConfigurationIndicator}"
+                                    ContentTemplate="{StaticResource StatusRailSegmentTemplate}"
+                                    AutomationProperties.Name="Configuration status indicator" />
+                </Border>
+                <Border BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="0,0,1,0"
+                        Padding="12">
+                    <ContentControl Content="{Binding ServerIndicator}"
+                                    ContentTemplate="{StaticResource StatusRailSegmentTemplate}"
+                                    AutomationProperties.Name="Cloud server status indicator" />
+                </Border>
+                <Border BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="0,0,1,0"
+                        Padding="12">
+                    <ContentControl Content="{Binding AgentIndicator}"
+                                    ContentTemplate="{StaticResource StatusRailSegmentTemplate}"
+                                    AutomationProperties.Name="Agent status indicator" />
+                </Border>
+                <Border Padding="12">
+                    <ContentControl Content="{Binding LoggingIndicator}"
+                                    ContentTemplate="{StaticResource StatusRailSegmentTemplate}"
+                                    AutomationProperties.Name="Logging status indicator" />
+                </Border>
+            </UniformGrid>
+        </Border>
 
         <Border Grid.Row="2"
                 Background="{DynamicResource SurfaceBrush}"
@@ -161,8 +185,8 @@
                 </Grid.ColumnDefinitions>
                 <Ellipse Width="9"
                          Height="9"
-                         Fill="{Binding AgentStatus,
-                             Converter={StaticResource StatusBrush}}"
+                         Fill="{Binding AgentIndicator.Signal,
+                             Converter={StaticResource DashboardSignalBrush}}"
                          VerticalAlignment="Center"
                          Margin="0,0,10,0" />
                 <TextBlock Grid.Column="1"

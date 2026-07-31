@@ -9,7 +9,13 @@
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         AutomationProperties.Name="Connection and license configuration">
-    <Grid Margin="28">
+    <Border Margin="20"
+            Background="{DynamicResource SurfaceRaisedBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="28">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -19,6 +25,7 @@
 
         <StackPanel>
             <TextBlock Text="Connection &amp; License Configuration"
+                       Foreground="{DynamicResource PrimaryTextBrush}"
                        FontSize="24"
                        FontWeight="SemiBold" />
             <TextBlock Text="Settings are tested before encrypted storage is changed."
@@ -29,7 +36,8 @@
 
         <StackPanel Grid.Row="1">
             <TextBlock Text="License" Style="{StaticResource SectionHeaderStyle}" />
-            <TextBlock Text="License key" />
+            <TextBlock Text="License key"
+                       Foreground="{DynamicResource PrimaryTextBrush}" />
             <PasswordBox x:Name="LicenseKeyBox"
                          AutomationProperties.Name="License key"
                          PasswordChanged="LicenseKeyBox_OnPasswordChanged" />
@@ -38,16 +46,19 @@
         <StackPanel Grid.Row="2" Margin="0,12,0,0">
             <TextBlock Text="Local POS host"
                        Style="{StaticResource SectionHeaderStyle}" />
-            <TextBlock Text="HTTPS origin" />
+            <TextBlock Text="HTTPS origin"
+                       Foreground="{DynamicResource PrimaryTextBrush}" />
             <TextBox Text="{Binding PosBaseUrl,
                                    UpdateSourceTrigger=PropertyChanged}"
                      AutomationProperties.Name="Local POS HTTPS origin"
                      ToolTip="For example: https://10.1.10.250" />
-            <TextBlock Text="Username" />
+            <TextBlock Text="Username"
+                       Foreground="{DynamicResource PrimaryTextBrush}" />
             <TextBox Text="{Binding PosUsername,
                                    UpdateSourceTrigger=PropertyChanged}"
                      AutomationProperties.Name="POS username" />
-            <TextBlock Text="Password" />
+            <TextBlock Text="Password"
+                       Foreground="{DynamicResource PrimaryTextBrush}" />
             <PasswordBox x:Name="PosPasswordBox"
                          AutomationProperties.Name="POS password"
                          PasswordChanged="PosPasswordBox_OnPasswordChanged" />
@@ -70,18 +81,20 @@
             </Grid.ColumnDefinitions>
             <Button Content="Clear Saved Settings"
                     Command="{Binding ClearCommand}"
-                    Style="{StaticResource SecondaryButtonStyle}" />
+                    Style="{StaticResource DangerButtonStyle}" />
             <StackPanel Grid.Column="2"
                         Orientation="Horizontal"
                         HorizontalAlignment="Right">
                 <Button Content="Cancel"
                         Command="{Binding CancelCommand}"
-                        Style="{StaticResource SecondaryButtonStyle}"
+                        Style="{StaticResource DialogSecondaryButtonStyle}"
                         IsCancel="True" />
                 <Button Content="Save &amp; Test Connection"
                         Command="{Binding SaveCommand}"
+                        Style="{StaticResource DialogPrimaryButtonStyle}"
                         IsDefault="True" />
             </StackPanel>
         </Grid>
     </Grid>
+    </Border>
 </Window>

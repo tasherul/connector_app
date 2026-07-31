@@ -78,21 +78,88 @@ public sealed class WpfStartupTests
         XDocument document = XDocument.Load(path);
         XNamespace presentation =
             "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
 
         Assert.Equal(
             "Hybrid Edge Connector Agent",
             document.Root?.Attribute("Title")?.Value);
-        string[] cardNames = document
-            .Descendants(presentation + "Border")
-            .Select(element =>
-                element.Attribute("AutomationProperties.Name")?.Value)
-            .Where(value => value is not null)
-            .Cast<string>()
-            .ToArray();
-        Assert.Contains("Configuration status", cardNames);
-        Assert.Contains("Cloud server status", cardNames);
-        Assert.Contains("Agent health status", cardNames);
-        Assert.Contains("Logging health status", cardNames);
+        XElement rail = Assert.Single(
+            document.Descendants(presentation + "Border"),
+            element =>
+                element.Attribute("AutomationProperties.Name")?.Value ==
+                "Connector status rail container");
+        Assert.Contains(
+            rail.Descendants(presentation + "UniformGrid"),
+            element =>
+                element.Attribute("Columns")?.Value.Contains(
+                    "WidthToStatusColumnCount",
+                    StringComparison.Ordinal) == true);
+
+        AssertStatusSegment(
+            rail,
+            presentation,
+            "Configuration status indicator",
+            "ConfigurationIndicator");
+        AssertStatusSegment(
+            rail,
+            presentation,
+            "Cloud server status indicator",
+            "ServerIndicator");
+        AssertStatusSegment(
+            rail,
+            presentation,
+            "Agent status indicator",
+            "AgentIndicator");
+        AssertStatusSegment(
+            rail,
+            presentation,
+            "Logging status indicator",
+            "LoggingIndicator");
+
+        XElement statusTemplate = Assert.Single(
+            document.Descendants(presentation + "DataTemplate"),
+            element => element.Attribute(x + "Key")?.Value ==
+                "StatusRailSegmentTemplate");
+        Assert.Contains(statusTemplate.Descendants(presentation + "Path"), _ => true);
+        Assert.Contains(statusTemplate.Descendants(presentation + "Ellipse"),
+            element =>
+                element.Attribute("Fill")?.Value.Contains(
+                    "DashboardSignalBrush",
+                    StringComparison.Ordinal) == true);
+        Assert.Contains(statusTemplate.Descendants(presentation + "TextBlock"),
+            element => element.Attribute("Text")?.Value == "{Binding Title}");
+        Assert.Contains(statusTemplate.Descendants(presentation + "TextBlock"),
+            element => element.Attribute("Text")?.Value == "{Binding Status}");
+        Assert.Contains(statusTemplate.Descendants(presentation + "TextBlock"),
+            element =>
+                element.Attribute("Text")?.Value == "{Binding Description}" &&
+                element.Attribute("ToolTip")?.Value == "{Binding Description}");
+
+        string xaml = File.ReadAllText(path);
+        Assert.DoesNotContain("🔧", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("☁", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("⛨", xaml, StringComparison.Ordinal);
+
+        AssertButtonStyle(
+            document,
+            presentation,
+            "Open connection settings",
+            "SettingsButtonStyle");
+        AssertButtonStyle(
+            document,
+            presentation,
+            "Connect or disconnect",
+            "ConnectionButtonStyle");
+        AssertButtonStyle(
+            document,
+            presentation,
+            "Open logs folder",
+            "LogsButtonStyle");
+        AssertButtonStyle(
+            document,
+            presentation,
+            "Exit application",
+            "DangerButtonStyle");
 
         XElement activityList = Assert.Single(
             document.Descendants(presentation + "ListBox"),
@@ -104,6 +171,10 @@ public sealed class WpfStartupTests
             "True",
             activityList.Attribute(
                 "VirtualizingStackPanel.IsVirtualizing")?.Value);
+        Assert.Equal(
+            "Recycling",
+            activityList.Attribute(
+                "VirtualizingStackPanel.VirtualizationMode")?.Value);
     }
 
     [Fact]
@@ -136,5 +207,88 @@ public sealed class WpfStartupTests
             .ToArray();
         Assert.Contains("Save & Test Connection", buttons);
         Assert.Contains("Cancel", buttons);
+
+        AssertExplicitForeground(
+            document,
+            presentation,
+            "Connection & License Configuration");
+        AssertExplicitForeground(
+            document,
+            presentation,
+            "Settings are tested before encrypted storage is changed.");
+        Assert.Contains(
+            document.Descendants(presentation + "TextBlock"),
+            element =>
+                element.Attribute("Text")?.Value == "{Binding ValidationMessage}" &&
+                element.Attribute("Foreground")?.Value ==
+                "{DynamicResource ErrorTextBrush}");
+
+        AssertButtonStyle(
+            document,
+            presentation,
+            "Clear Saved Settings",
+            "DangerButtonStyle");
+        AssertButtonStyle(
+            document,
+            presentation,
+            "Cancel",
+            "DialogSecondaryButtonStyle");
+        AssertButtonStyle(
+            document,
+            presentation,
+            "Save & Test Connection",
+            "DialogPrimaryButtonStyle");
+    }
+
+    private static void AssertStatusSegment(
+        XElement rail,
+        XNamespace presentation,
+        string automationName,
+        string bindingName)
+    {
+        XElement segment = Assert.Single(
+            rail.Descendants(presentation + "ContentControl"),
+            element =>
+                element.Attribute("AutomationProperties.Name")?.Value ==
+                automationName);
+
+        Assert.Equal(
+            $"{{Binding {bindingName}}}",
+            segment.Attribute("Content")?.Value);
+        Assert.Contains(
+            "StatusRailSegmentTemplate",
+            segment.Attribute("ContentTemplate")?.Value,
+            StringComparison.Ordinal);
+    }
+
+    private static void AssertButtonStyle(
+        XDocument document,
+        XNamespace presentation,
+        string contentOrAutomationName,
+        string styleKey)
+    {
+        Assert.Contains(
+            document.Descendants(presentation + "Button"),
+            element =>
+                (element.Attribute("Content")?.Value == contentOrAutomationName ||
+                 element.Attribute("AutomationProperties.Name")?.Value ==
+                 contentOrAutomationName) &&
+                element.Attribute("Style")?.Value.Contains(
+                    styleKey,
+                    StringComparison.Ordinal) == true);
+    }
+
+    private static void AssertExplicitForeground(
+        XDocument document,
+        XNamespace presentation,
+        string text)
+    {
+        Assert.Contains(
+            document.Descendants(presentation + "TextBlock"),
+            element =>
+                element.Attribute("Text")?.Value == text &&
+                element.Attribute("Foreground")?.Value.Contains(
+                    "TextBrush",
+                    StringComparison.Ordinal) == true);
     }
 }
