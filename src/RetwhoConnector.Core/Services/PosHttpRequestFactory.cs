@@ -12,6 +12,8 @@ public sealed class PosHttpRequestFactory(PosOptions options)
         new("RetwhoConnector.ConfiguredPosOrigin");
     internal static readonly HttpRequestOptionsKey<string> CertificatePinKey =
         new("RetwhoConnector.CertificatePin");
+    internal static readonly HttpRequestOptionsKey<string> CommandKey =
+        new("RetwhoConnector.PosCommand");
 
     public HttpRequestMessage CreateLogin(ConnectorSettings settings) =>
         Create(
@@ -77,6 +79,10 @@ public sealed class PosHttpRequestFactory(PosOptions options)
         Add(request, "sec-ch-ua-mobile", PosCompatibilityHeaders.SecChUaMobile);
         Add(request, "sec-ch-ua-platform", PosCompatibilityHeaders.SecChUaPlatform);
         request.Options.Set(ConfiguredOriginKey, origin);
+        request.Options.Set(
+            CommandKey,
+            parameters.First(pair =>
+                pair.Key.Equals("cmd", StringComparison.Ordinal)).Value);
         if (!string.IsNullOrWhiteSpace(settings.PinnedCertificateSha256))
         {
             request.Options.Set(

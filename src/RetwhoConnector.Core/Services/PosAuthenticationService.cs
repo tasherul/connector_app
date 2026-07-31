@@ -7,35 +7,57 @@ using RetwhoConnector.Core.Models;
 
 namespace RetwhoConnector.Core.Services;
 
-public sealed class PosAuthenticationService(
-    HttpClient httpClient,
-    PosHttpRequestFactory requestFactory,
-    IPosResponseReader responseReader,
-    PosOptions options,
-    TimeProvider timeProvider) : IPosAuthenticationService
+public sealed class PosAuthenticationService : IPosAuthenticationService
 {
+    private readonly IPosHttpClient _httpClient;
+    private readonly PosHttpRequestFactory _requestFactory;
+    private readonly TimeProvider _timeProvider;
+
+    public PosAuthenticationService(
+        IPosHttpClient httpClient,
+        PosHttpRequestFactory requestFactory,
+        TimeProvider timeProvider)
+    {
+        _httpClient = httpClient;
+        _requestFactory = requestFactory;
+        _timeProvider = timeProvider;
+    }
+
+    internal PosAuthenticationService(
+        HttpClient httpClient,
+        PosHttpRequestFactory requestFactory,
+        IPosResponseReader responseReader,
+        PosOptions options,
+        TimeProvider timeProvider)
+        : this(
+            new PosHttpClient(
+                httpClient,
+                responseReader,
+                options,
+                NullAgentLog.Instance),
+            requestFactory,
+            timeProvider)
+    {
+    }
+
     public async Task<PosSession> LoginAsync(
         ConnectorSettings settings,
         CancellationToken cancellationToken)
     {
-        using HttpRequestMessage request = requestFactory.CreateLogin(settings);
-        using HttpResponseMessage response = await httpClient.SendAsync(
+        using HttpRequestMessage request = _requestFactory.CreateLogin(settings);
+        PosHttpResponse posResponse = await _httpClient.SendAsync(
             request,
-            HttpCompletionOption.ResponseHeadersRead,
             cancellationToken).ConfigureAwait(false);
-        PosHttpResponse posResponse = await responseReader.ReadAsync(
-            response,
-            options.MaximumResponseBytes,
-            cancellationToken).ConfigureAwait(false);
+        var statusCode = (HttpStatusCode)posResponse.Metadata.StatusCode;
 
-        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        if (statusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
             throw new PosAuthenticationException(
                 "POS_LOGIN_FAILED",
                 "The POS rejected the configured credentials.");
         }
 
-        if (!response.IsSuccessStatusCode)
+        if (posResponse.Metadata.StatusCode is < 200 or > 299)
         {
             throw new PosAuthenticationException(
                 "POS_LOGIN_FAILED",
@@ -76,7 +98,7 @@ public sealed class PosAuthenticationService(
         {
             Cookie = cookie,
             SiteId = string.IsNullOrEmpty(site) ? null : site,
-            ObtainedAtUtc = timeProvider.GetUtcNow(),
+            ObtainedAtUtc = _timeProvider.GetUtcNow(),
         };
     }
 

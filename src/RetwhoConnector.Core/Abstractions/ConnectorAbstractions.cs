@@ -35,6 +35,13 @@ public interface IPosDataService
         CancellationToken cancellationToken);
 }
 
+public interface IPosHttpClient
+{
+    Task<PosHttpResponse> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken);
+}
+
 public interface ISecureSettingsService
 {
     Task<ConnectorSettings?> LoadAsync(CancellationToken cancellationToken);

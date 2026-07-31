@@ -6,18 +6,47 @@ using RetwhoConnector.Core.Models;
 
 namespace RetwhoConnector.Core.Services;
 
-public sealed class PosDataService(
-    HttpClient httpClient,
-    PosHttpRequestFactory requestFactory,
-    IPosResponseReader responseReader,
-    IVdatetimeXmlMapper mapper,
-    PosOptions options,
-    TimeProvider timeProvider) : IPosDataService
+public sealed class PosDataService : IPosDataService
 {
     private static readonly string[] AuthenticationSubjects =
         ["cookie", "session", "auth", "credential"];
     private static readonly string[] FailureIndicators =
         ["expired", "invalid", "unauthorized", "denied"];
+    private readonly IPosHttpClient _httpClient;
+    private readonly PosHttpRequestFactory _requestFactory;
+    private readonly IVdatetimeXmlMapper _mapper;
+    private readonly TimeProvider _timeProvider;
+
+    public PosDataService(
+        IPosHttpClient httpClient,
+        PosHttpRequestFactory requestFactory,
+        IVdatetimeXmlMapper mapper,
+        TimeProvider timeProvider)
+    {
+        _httpClient = httpClient;
+        _requestFactory = requestFactory;
+        _mapper = mapper;
+        _timeProvider = timeProvider;
+    }
+
+    internal PosDataService(
+        HttpClient httpClient,
+        PosHttpRequestFactory requestFactory,
+        IPosResponseReader responseReader,
+        IVdatetimeXmlMapper mapper,
+        PosOptions options,
+        TimeProvider timeProvider)
+        : this(
+            new PosHttpClient(
+                httpClient,
+                responseReader,
+                options,
+                NullAgentLog.Instance),
+            requestFactory,
+            mapper,
+            timeProvider)
+    {
+    }
 
     public async Task<VdatetimeResult> GetVdatetimeAsync(
         ConnectorSettings settings,
@@ -26,22 +55,18 @@ public sealed class PosDataService(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cookie);
         using HttpRequestMessage request =
-            requestFactory.CreateVdatetime(settings, cookie);
-        using HttpResponseMessage response = await httpClient.SendAsync(
+            _requestFactory.CreateVdatetime(settings, cookie);
+        PosHttpResponse posResponse = await _httpClient.SendAsync(
             request,
-            HttpCompletionOption.ResponseHeadersRead,
             cancellationToken).ConfigureAwait(false);
-        PosHttpResponse posResponse = await responseReader.ReadAsync(
-            response,
-            options.MaximumResponseBytes,
-            cancellationToken).ConfigureAwait(false);
+        var statusCode = (HttpStatusCode)posResponse.Metadata.StatusCode;
 
-        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        if (statusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
             throw SessionExpired();
         }
 
-        if (!response.IsSuccessStatusCode)
+        if (posResponse.Metadata.StatusCode is < 200 or > 299)
         {
             throw new PosResponseException(
                 "POS_HTTP_ERROR",
@@ -50,7 +75,9 @@ public sealed class PosDataService(
 
         try
         {
-            return mapper.Parse(posResponse.Body, timeProvider.GetUtcNow());
+            return _mapper.Parse(
+                posResponse.Body,
+                _timeProvider.GetUtcNow());
         }
         catch (PosResponseException exception)
             when (exception.Code == "POS_INVALID_RESPONSE" &&

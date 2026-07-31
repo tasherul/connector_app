@@ -8,6 +8,7 @@ using RetwhoConnector.App.Services;
 using RetwhoConnector.App.ViewModels;
 using RetwhoConnector.Core.Abstractions;
 using RetwhoConnector.Core.Configuration;
+using RetwhoConnector.Core.Security;
 using RetwhoConnector.Core.Services;
 using Serilog;
 using WpfMessageBox = System.Windows.MessageBox;
@@ -118,20 +119,36 @@ public partial class App : System.Windows.Application
             {
                 services.AddSingleton(new BridgeOptions());
                 services.AddSingleton(new PosOptions());
+                services.AddSingleton(new AgentLoggingOptions());
+                services.AddSingleton(new LogStorageOptions());
                 services.AddSingleton(TimeProvider.System);
+                services.AddSingleton<ILogSanitizer, LogSanitizer>();
+                services.AddSingleton<RollingFileLogSink>();
+                services.AddSingleton<SqliteLogSink>();
+                services.AddSingleton<IAgentLogSink>(provider =>
+                    provider.GetRequiredService<RollingFileLogSink>());
+                services.AddSingleton<IAgentLogSink>(provider =>
+                    provider.GetRequiredService<SqliteLogSink>());
+                services.AddSingleton<AgentLogPipeline>();
+                services.AddSingleton<IAgentLog>(provider =>
+                    provider.GetRequiredService<AgentLogPipeline>());
+                services.AddSingleton<IHostedService>(provider =>
+                    provider.GetRequiredService<AgentLogPipeline>());
                 services.AddSingleton<ISecureSettingsService, SecureSettingsService>();
                 services.AddSingleton<ICertificateTrustService, CertificateTrustService>();
                 services.AddSingleton<IPosResponseReader, PosResponseReader>();
                 services.AddSingleton<IVdatetimeXmlMapper, VdatetimeXmlMapper>();
                 services.AddSingleton<PosHttpRequestFactory>();
-                services.AddHttpClient<IPosAuthenticationService, PosAuthenticationService>()
+                services.AddHttpClient<PosHttpClient>()
                     .ConfigurePrimaryHttpMessageHandler(provider =>
                         PosHttpClientHandlerFactory.Create(
                             provider.GetRequiredService<ICertificateTrustService>()));
-                services.AddHttpClient<IPosDataService, PosDataService>()
-                    .ConfigurePrimaryHttpMessageHandler(provider =>
-                        PosHttpClientHandlerFactory.Create(
-                            provider.GetRequiredService<ICertificateTrustService>()));
+                services.AddSingleton<IPosHttpClient>(provider =>
+                    provider.GetRequiredService<PosHttpClient>());
+                services.AddSingleton<
+                    IPosAuthenticationService,
+                    PosAuthenticationService>();
+                services.AddSingleton<IPosDataService, PosDataService>();
                 services.AddSingleton<IBridgeSocketClient, BridgeSocketClient>();
                 services.AddSingleton<IActionExecutionRegistry>(provider =>
                     new ActionExecutionRegistry(

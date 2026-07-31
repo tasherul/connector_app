@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using RetwhoConnector.Core.Abstractions;
 
@@ -11,6 +12,7 @@ public static class PosHttpClientHandlerFactory
         new HttpClientHandler
         {
             AutomaticDecompression = DecompressionMethods.None,
+            SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
             ServerCertificateCustomValidationCallback =
                 (request, certificate, _, policyErrors) =>
                 {
