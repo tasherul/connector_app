@@ -13,6 +13,7 @@
     <Window.Resources>
         <conv:DashboardSignalToBrushConverter x:Key="DashboardSignalBrush" />
         <conv:LogCategoryToBrushConverter x:Key="LogCategoryBrush" />
+        <conv:UppercaseTextConverter x:Key="UppercaseText" />
         <conv:WidthToStatusColumnCountConverter
             x:Key="WidthToStatusColumnCount" />
         <DataTemplate x:Key="StatusRailSegmentTemplate"
@@ -34,7 +35,7 @@
                           Stretch="Uniform" />
                 </Border>
                 <StackPanel Grid.Column="1">
-                    <TextBlock Text="{Binding Title}"
+                    <TextBlock Text="{Binding Title, Converter={StaticResource UppercaseText}}"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                FontSize="11"
                                FontWeight="SemiBold" />
@@ -84,6 +85,42 @@
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
+        <Style x:Key="ConfigurationRailSegmentStyle" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,1,0" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Columns,
+                              RelativeSource={RelativeSource AncestorType={x:Type UniformGrid}}}"
+                             Value="2">
+                    <Setter Property="BorderThickness" Value="0,0,1,1" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="ServerRailSegmentStyle" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,1,0" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Columns,
+                              RelativeSource={RelativeSource AncestorType={x:Type UniformGrid}}}"
+                             Value="2">
+                    <Setter Property="BorderThickness" Value="0,0,0,1" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="AgentRailSegmentStyle" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,1,0" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Columns,
+                              RelativeSource={RelativeSource AncestorType={x:Type UniformGrid}}}"
+                             Value="2">
+                    <Setter Property="BorderThickness" Value="0,0,1,0" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="LogsRailSegmentStyle" TargetType="Border">
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
     </Window.Resources>
 
     <Grid Margin="24">
@@ -95,11 +132,11 @@
         </Grid.RowDefinitions>
 
         <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <StackPanel>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <StackPanel Grid.Row="0">
                 <TextBlock Text="Hybrid Edge Connector Agent"
                            FontSize="28"
                            FontWeight="SemiBold" />
@@ -108,9 +145,11 @@
                            FontSize="15"
                            Margin="0,4,0,0" />
             </StackPanel>
-            <WrapPanel Grid.Column="1"
-                       HorizontalAlignment="Right"
-                       VerticalAlignment="Center">
+            <WrapPanel Grid.Row="1"
+                       Margin="0,12,0,0"
+                       HorizontalAlignment="Stretch"
+                       VerticalAlignment="Center"
+                       AutomationProperties.Name="Connector command actions">
                 <Button Content="Settings"
                         Command="{Binding OpenSettingsCommand}"
                         Style="{StaticResource SettingsButtonStyle}"
@@ -142,28 +181,26 @@
             <UniformGrid Columns="{Binding ActualWidth,
                                           RelativeSource={RelativeSource AncestorType={x:Type Window}},
                                           Converter={StaticResource WidthToStatusColumnCount}}">
-                <Border BorderBrush="{DynamicResource BorderBrush}"
-                        BorderThickness="0,0,1,0"
+                <Border Style="{StaticResource ConfigurationRailSegmentStyle}"
                         Padding="12">
                     <ContentControl Content="{Binding ConfigurationIndicator}"
                                     ContentTemplate="{StaticResource StatusRailSegmentTemplate}"
                                     AutomationProperties.Name="Configuration status indicator" />
                 </Border>
-                <Border BorderBrush="{DynamicResource BorderBrush}"
-                        BorderThickness="0,0,1,0"
+                <Border Style="{StaticResource ServerRailSegmentStyle}"
                         Padding="12">
                     <ContentControl Content="{Binding ServerIndicator}"
                                     ContentTemplate="{StaticResource StatusRailSegmentTemplate}"
                                     AutomationProperties.Name="Cloud server status indicator" />
                 </Border>
-                <Border BorderBrush="{DynamicResource BorderBrush}"
-                        BorderThickness="0,0,1,0"
+                <Border Style="{StaticResource AgentRailSegmentStyle}"
                         Padding="12">
                     <ContentControl Content="{Binding AgentIndicator}"
                                     ContentTemplate="{StaticResource StatusRailSegmentTemplate}"
                                     AutomationProperties.Name="Agent status indicator" />
                 </Border>
-                <Border Padding="12">
+                <Border Style="{StaticResource LogsRailSegmentStyle}"
+                        Padding="12">
                     <ContentControl Content="{Binding LoggingIndicator}"
                                     ContentTemplate="{StaticResource StatusRailSegmentTemplate}"
                                     AutomationProperties.Name="Logging status indicator" />

@@ -17,18 +17,20 @@ public sealed class DashboardSignalToBrushConverter : IValueConverter
         CultureInfo culture)
     {
         string key = value is DashboardSignal signal
-            ? signal switch
-            {
-                DashboardSignal.Healthy => "SuccessBrush",
-                DashboardSignal.Warning => "WarningBrush",
-                DashboardSignal.Error => "ErrorBrush",
-                _ => "NeutralBrush",
-            }
+            ? GetResourceKey(signal)
             : "NeutralBrush";
 
-        return WpfApplication.Current.TryFindResource(key) as WpfBrush
+        return WpfApplication.Current?.TryFindResource(key) as WpfBrush
             ?? WpfBrushes.Gray;
     }
+
+    internal static string GetResourceKey(DashboardSignal signal) => signal switch
+    {
+        DashboardSignal.Healthy => "SuccessBrush",
+        DashboardSignal.Warning => "WarningBrush",
+        DashboardSignal.Error => "ErrorBrush",
+        _ => "NeutralBrush",
+    };
 
     public object ConvertBack(
         object value,

@@ -3,17 +3,14 @@ using System.Windows.Data;
 
 namespace RetwhoConnector.App.Converters;
 
-public sealed class WidthToStatusColumnCountConverter : IValueConverter
+public sealed class UppercaseTextConverter : IValueConverter
 {
     public object Convert(
         object value,
         Type targetType,
         object parameter,
         CultureInfo culture) =>
-        value is double width ? GetColumnCount(width) : 2;
-
-    internal static int GetColumnCount(double width) =>
-        double.IsFinite(width) && width >= 920 ? 4 : 2;
+        value is string text ? text.ToUpperInvariant() : string.Empty;
 
     public object ConvertBack(
         object value,

@@ -29,6 +29,10 @@
   <ItemGroup>
     <Compile Include="..\..\src\RetwhoConnector.App\ViewModels\DashboardStatusModels.cs"
              Link="Linked\DashboardStatusModels.cs" />
+    <Compile Include="..\..\src\RetwhoConnector.App\Converters\DashboardSignalToBrushConverter.cs"
+             Link="Linked\DashboardSignalToBrushConverter.cs" />
+    <Compile Include="..\..\src\RetwhoConnector.App\Converters\WidthToStatusColumnCountConverter.cs"
+             Link="Linked\WidthToStatusColumnCountConverter.cs" />
   </ItemGroup>
 
   <ItemGroup>

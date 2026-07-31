@@ -127,7 +127,9 @@ public sealed class WpfStartupTests
                     "DashboardSignalBrush",
                     StringComparison.Ordinal) == true);
         Assert.Contains(statusTemplate.Descendants(presentation + "TextBlock"),
-            element => element.Attribute("Text")?.Value == "{Binding Title}");
+            element => element.Attribute("Text")?.Value.Contains(
+                "Binding Title",
+                StringComparison.Ordinal) == true);
         Assert.Contains(statusTemplate.Descendants(presentation + "TextBlock"),
             element => element.Attribute("Text")?.Value == "{Binding Status}");
         Assert.Contains(statusTemplate.Descendants(presentation + "TextBlock"),
@@ -240,6 +242,63 @@ public sealed class WpfStartupTests
             "DialogPrimaryButtonStyle");
     }
 
+    [Fact]
+    public void MainWindow_UsesAdaptiveTitleActionsAndSeparators()
+    {
+        XDocument document = XDocument.Load(Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "MainWindow.xaml"));
+        XNamespace presentation =
+            "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        XElement statusTemplate = Assert.Single(
+            document.Descendants(presentation + "DataTemplate"),
+            element => element.Attribute(x + "Key")?.Value ==
+                "StatusRailSegmentTemplate");
+        Assert.Contains(statusTemplate.Descendants(presentation + "TextBlock"),
+            element =>
+                element.Attribute("Text")?.Value ==
+                "{Binding Title, Converter={StaticResource UppercaseText}}");
+
+        XElement commandBar = Assert.Single(
+            document.Descendants(presentation + "WrapPanel"),
+            element => element.Attribute("AutomationProperties.Name")?.Value ==
+                "Connector command actions");
+        Assert.Equal("1", commandBar.Attribute("Grid.Row")?.Value);
+        Assert.Equal("Stretch", commandBar.Attribute("HorizontalAlignment")?.Value);
+
+        AssertRailSeparatorStyle(
+            document,
+            presentation,
+            x,
+            "ConfigurationRailSegmentStyle",
+            "0,0,1,0",
+            "0,0,1,1");
+        AssertRailSeparatorStyle(
+            document,
+            presentation,
+            x,
+            "ServerRailSegmentStyle",
+            "0,0,1,0",
+            "0,0,0,1");
+        AssertRailSeparatorStyle(
+            document,
+            presentation,
+            x,
+            "AgentRailSegmentStyle",
+            "0,0,1,0",
+            "0,0,1,0");
+        AssertRailSeparatorStyle(
+            document,
+            presentation,
+            x,
+            "LogsRailSegmentStyle",
+            "0",
+            null);
+    }
+
     private static void AssertStatusSegment(
         XElement rail,
         XNamespace presentation,
@@ -290,5 +349,37 @@ public sealed class WpfStartupTests
                 element.Attribute("Foreground")?.Value.Contains(
                     "TextBrush",
                     StringComparison.Ordinal) == true);
+    }
+
+    private static void AssertRailSeparatorStyle(
+        XDocument document,
+        XNamespace presentation,
+        XNamespace x,
+        string key,
+        string wideThickness,
+        string? narrowThickness)
+    {
+        XElement style = Assert.Single(
+            document.Descendants(presentation + "Style"),
+            element => element.Attribute(x + "Key")?.Value == key);
+        Assert.Contains(style.Elements(presentation + "Setter"),
+            element =>
+                element.Attribute("Property")?.Value == "BorderThickness" &&
+                element.Attribute("Value")?.Value == wideThickness);
+
+        if (narrowThickness is null)
+        {
+            Assert.Empty(style.Descendants(presentation + "DataTrigger"));
+            return;
+        }
+
+        XElement trigger = Assert.Single(
+            style.Descendants(presentation + "DataTrigger"),
+            element => element.Attribute("Value")?.Value == "2");
+        Assert.Contains("UniformGrid", trigger.Attribute("Binding")?.Value);
+        Assert.Contains(trigger.Elements(presentation + "Setter"),
+            element =>
+                element.Attribute("Property")?.Value == "BorderThickness" &&
+                element.Attribute("Value")?.Value == narrowThickness);
     }
 }
