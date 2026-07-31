@@ -1,5 +1,6 @@
 .vs/
 .worktrees/
+.superpowers/
 **/bin/
 **/obj/
 TestResults/
