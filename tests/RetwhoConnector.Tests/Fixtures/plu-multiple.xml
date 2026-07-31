@@ -1,0 +1,14 @@
+<PLUs page="1" ofPages="1">
+  <PLU>
+    <upc>00000000000001</upc>
+    <upcModifier>000</upcModifier>
+    <description>FAKE PRODUCT A</description>
+    <department>10</department>
+  </PLU>
+  <PLU>
+    <upc>00000000000002</upc>
+    <upcModifier>000</upcModifier>
+    <description>FAKE PRODUCT B</description>
+    <department>10</department>
+  </PLU>
+</PLUs>

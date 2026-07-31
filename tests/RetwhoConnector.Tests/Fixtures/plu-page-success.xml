@@ -1,0 +1,26 @@
+<domain:PLUs page="2" ofPages="4"
+    xmlns:domain="urn:vfi-sapphire:np.domain.2001-07-01">
+  <domain:PLU>
+    <upc>00000000000001</upc>
+    <upcModifier>000</upcModifier>
+    <description>FAKE PRODUCT A</description>
+    <department>10</department>
+    <fees><fee>0</fee><fee>7</fee></fees>
+    <pcode>400</pcode>
+    <price>4.67</price>
+    <flags><domain:flag sysid="1"/><domain:flag sysid="9"/></flags>
+    <taxRates><domain:taxRate sysid="2"/></taxRates>
+    <idChecks><domain:idCheck sysid="3"/></idChecks>
+    <SellUnit>1.000</SellUnit>
+    <taxableRebate><amount>0.00</amount></taxableRebate>
+    <groupCode index="0">5</groupCode>
+    <groupCode index="2">7</groupCode>
+    <maxQtyPerTrans>2.00</maxQtyPerTrans>
+  </domain:PLU>
+  <domain:PLU>
+    <upc>00000000000002</upc>
+    <upcModifier>123</upcModifier>
+    <description>FAKE PRODUCT B</description>
+    <department>11</department>
+  </domain:PLU>
+</domain:PLUs>
