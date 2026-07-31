@@ -87,6 +87,17 @@ public interface ILogSanitizer
     string Sanitize(string? value);
 }
 
+public interface IAgentLogSink
+{
+    string Name { get; }
+
+    ValueTask WriteAsync(
+        LogEntry entry,
+        CancellationToken cancellationToken);
+
+    ValueTask FlushAsync(CancellationToken cancellationToken);
+}
+
 public interface IPosResponseReader
 {
     Task<PosHttpResponse> ReadAsync(
