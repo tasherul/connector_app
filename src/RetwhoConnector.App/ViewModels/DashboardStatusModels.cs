@@ -168,6 +168,26 @@ public static class DashboardStatusMapper
         AgentRegistrationState registration,
         PosAuthenticationState authentication)
     {
+        if (authentication == PosAuthenticationState.RefreshingSession)
+        {
+            return new DashboardStatusItem(
+                "Agent",
+                "Refreshing",
+                "Refreshing the POS session",
+                DashboardSignal.Warning,
+                "AgentIconGeometry");
+        }
+
+        if (authentication == PosAuthenticationState.AuthenticationFailed)
+        {
+            return new DashboardStatusItem(
+                "Agent",
+                "Error",
+                "POS authentication failed",
+                DashboardSignal.Error,
+                "AgentIconGeometry");
+        }
+
         if (registration == AgentRegistrationState.Registered)
         {
             return new DashboardStatusItem(
@@ -208,19 +228,12 @@ public static class DashboardStatusMapper
                 "AgentIconGeometry");
         }
 
-        return authentication == PosAuthenticationState.RefreshingSession
-            ? new DashboardStatusItem(
-                "Agent",
-                "Refreshing",
-                "Refreshing the POS session",
-                DashboardSignal.Warning,
-                "AgentIconGeometry")
-            : new DashboardStatusItem(
-                "Agent",
-                "Idle",
-                "Waiting to connect to Retwho",
-                DashboardSignal.Warning,
-                "AgentIconGeometry");
+        return new DashboardStatusItem(
+            "Agent",
+            "Idle",
+            "Waiting to connect to Retwho",
+            DashboardSignal.Warning,
+            "AgentIconGeometry");
     }
 
     private static DashboardStatusItem MapLogs(LogPipelineHealth health) =>

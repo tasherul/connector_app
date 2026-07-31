@@ -78,6 +78,9 @@ public sealed class UiTestHarness : IDisposable
 
     public void RequestExit() => _applicationControl.RequestExit();
 
+    public void SetConnectorStatus(ConnectorStatus status) =>
+        _orchestration.SetStatus(status);
+
     public void Dispose()
     {
     }
@@ -135,7 +138,7 @@ public sealed class UiTestHarness : IDisposable
 
     private sealed class FakeAgentOrchestrationService : IAgentOrchestrationService
     {
-        public ConnectorStatus CurrentStatus { get; } = new()
+        public ConnectorStatus CurrentStatus { get; private set; } = new()
         {
             PosConfiguration = PosConfigurationState.Configured,
             BridgeTransport = BridgeTransportState.Connected,
@@ -144,11 +147,7 @@ public sealed class UiTestHarness : IDisposable
 
         public ConnectorSettings? CurrentSettings => null;
 
-        public event EventHandler<ConnectorStatus>? StatusChanged
-        {
-            add { }
-            remove { }
-        }
+        public event EventHandler<ConnectorStatus>? StatusChanged;
 
         public event EventHandler<VdatetimeResult>? ResultReceived
         {
@@ -187,6 +186,12 @@ public sealed class UiTestHarness : IDisposable
 
         public Task ClearSettingsAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
+
+        public void SetStatus(ConnectorStatus status)
+        {
+            CurrentStatus = status;
+            StatusChanged?.Invoke(this, status);
+        }
     }
 
     private sealed class FakeAgentLog : IAgentLog

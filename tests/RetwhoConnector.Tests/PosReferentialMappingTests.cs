@@ -25,8 +25,28 @@ public sealed class PosReferentialMappingTests
         Assert.Equal("NAXML", result.Source);
         Assert.Equal("vrefinteg", result.Command);
         Assert.Equal("FAKE-SITE-17", result.SiteId);
-        Assert.Equal(25, result.Limits.MaxRecords);
-        Assert.Equal(3, result.Limits.MaxFeesPerItem);
+        Assert.Equal(
+            new ReferentialDatasetLimits { MaxRecords = 10 },
+            result.Limits.TaxRates);
+        Assert.Equal(
+            new ReferentialDatasetLimits { MaxRecords = 20 },
+            result.Limits.Departments);
+        Assert.Equal(
+            new ReferentialDatasetLimits { MaxRecords = 30 },
+            result.Limits.ProdCodes);
+        Assert.Equal(
+            new ReferentialDatasetLimits { MaxRecords = 8 },
+            result.Limits.AgeValidations);
+        Assert.Equal(
+            new ReferentialDatasetLimits { MaxRecords = 0 },
+            result.Limits.BlueLaws);
+        Assert.Equal(
+            new ReferentialDatasetLimits
+            {
+                MaxRecords = 25,
+                MaxFeesPerItem = 3,
+            },
+            result.Limits.Fees);
         Assert.Equal(FetchedAt.ToUniversalTime(), result.FetchedAtUtc);
 
         NamedReference taxRate = Assert.Single(result.TaxRates);

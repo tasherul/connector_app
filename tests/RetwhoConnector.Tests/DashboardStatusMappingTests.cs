@@ -140,6 +140,34 @@ public sealed class DashboardStatusMappingTests
         Assert.Equal(DashboardSignal.Warning, result.Server.Signal);
     }
 
+    [Fact]
+    public void Map_PrioritizesSessionRefreshOverRegisteredAgent()
+    {
+        DashboardStatusSnapshot result = Map(status => status with
+        {
+            AgentRegistration = AgentRegistrationState.Registered,
+            PosAuthentication = PosAuthenticationState.RefreshingSession,
+        });
+
+        Assert.Equal("Refreshing", result.Agent.Status);
+        Assert.Equal("Refreshing the POS session", result.Agent.Description);
+        Assert.Equal(DashboardSignal.Warning, result.Agent.Signal);
+    }
+
+    [Fact]
+    public void Map_PrioritizesAuthenticationFailureOverRegisteredAgent()
+    {
+        DashboardStatusSnapshot result = Map(status => status with
+        {
+            AgentRegistration = AgentRegistrationState.Registered,
+            PosAuthentication = PosAuthenticationState.AuthenticationFailed,
+        });
+
+        Assert.Equal("Error", result.Agent.Status);
+        Assert.Equal("POS authentication failed", result.Agent.Description);
+        Assert.Equal(DashboardSignal.Error, result.Agent.Signal);
+    }
+
     [Theory]
     [InlineData(
         AgentRegistrationState.Registering,

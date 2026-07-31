@@ -3,6 +3,7 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using RetwhoConnector.Core.Models;
 
 namespace RetwhoConnector.App.Tests;
 
@@ -65,7 +66,7 @@ public sealed class WindowRenderingTests(StaTestRunner staTestRunner)
             string[] actionNames =
             [
                 "Open connection settings",
-                "Connect or disconnect",
+                "Connect",
                 "Open logs folder",
                 "Exit application",
             ];
@@ -81,6 +82,18 @@ public sealed class WindowRenderingTests(StaTestRunner staTestRunner)
                 Assert.NotNull(button.TryFindResource("DisabledBackgroundBrush"));
                 Assert.NotNull(button.TryFindResource("DisabledTextBrush"));
             }
+
+            Button connectionButton = FindButton(window, "Connect");
+            harness.SetConnectorStatus(new ConnectorStatus
+            {
+                PosConfiguration = PosConfigurationState.Configured,
+                PosAuthentication = PosAuthenticationState.Authenticated,
+                BridgeTransport = BridgeTransportState.Connected,
+                AgentRegistration = AgentRegistrationState.Registered,
+                Message = "Connected.",
+            });
+            window.UpdateLayout();
+            Assert.Same(connectionButton, FindButton(window, "Disconnect"));
 
             Button focusedButton = FindButton(window, "Open connection settings");
             Assert.True(focusedButton.Focus());

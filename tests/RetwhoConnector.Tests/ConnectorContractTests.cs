@@ -187,8 +187,16 @@ public sealed class ConnectorContractTests
                 SiteId = "6720",
                 Limits = new ReferentialIntegrityLimits
                 {
-                    MaxRecords = 100,
-                    MaxFeesPerItem = 10,
+                    TaxRates = new ReferentialDatasetLimits { MaxRecords = 10 },
+                    Departments = new ReferentialDatasetLimits { MaxRecords = 20 },
+                    ProdCodes = new ReferentialDatasetLimits { MaxRecords = 30 },
+                    AgeValidations = new ReferentialDatasetLimits { MaxRecords = 8 },
+                    BlueLaws = new ReferentialDatasetLimits { MaxRecords = 0 },
+                    Fees = new ReferentialDatasetLimits
+                    {
+                        MaxRecords = 25,
+                        MaxFeesPerItem = 3,
+                    },
                 },
                 FetchedAtUtc = fetchedAtUtc,
             });
@@ -200,7 +208,7 @@ public sealed class ConnectorContractTests
             """{"ok":true,"result":{"source":"NAXML","command":"vPLU","requestedUpc":"00000000000001","requestedUpcModifier":"000","found":false,"fetchedAtUtc":"2026-07-31T00:00:00+00:00"}}""",
             JsonSerializer.Serialize(lookup, ConnectorJson.Options));
         Assert.Equal(
-            """{"ok":true,"result":{"source":"NAXML","command":"vrefinteg","siteId":"6720","limits":{"maxRecords":100,"maxFeesPerItem":10},"taxRates":[],"departments":[],"productCodes":[],"ageValidations":[],"fees":[],"blueLaws":[],"fetchedAtUtc":"2026-07-31T00:00:00+00:00"}}""",
+            """{"ok":true,"result":{"source":"NAXML","command":"vrefinteg","siteId":"6720","limits":{"taxRates":{"maxRecords":10},"departments":{"maxRecords":20},"prodCodes":{"maxRecords":30},"ageValidations":{"maxRecords":8},"blueLaws":{"maxRecords":0},"fees":{"maxRecords":25,"maxFeesPerItem":3}},"taxRates":[],"departments":[],"productCodes":[],"ageValidations":[],"fees":[],"blueLaws":[],"fetchedAtUtc":"2026-07-31T00:00:00+00:00"}}""",
             JsonSerializer.Serialize(referential, ConnectorJson.Options));
     }
 

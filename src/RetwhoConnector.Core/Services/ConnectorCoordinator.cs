@@ -308,6 +308,9 @@ public sealed class ConnectorCoordinator : IAsyncDisposable
         {
             UpdateStatus(CurrentStatus with
             {
+                PosAuthentication = exception is PosAuthenticationException
+                    ? PosAuthenticationState.AuthenticationFailed
+                    : CurrentStatus.PosAuthentication,
                 LastCommand = exception is OperationCanceledException
                     ? LastCommandState.Cancelled
                     : LastCommandState.Failed,

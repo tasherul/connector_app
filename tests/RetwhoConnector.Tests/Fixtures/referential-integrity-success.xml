@@ -13,7 +13,7 @@
     <department sysid="dept-1" name="FAKE FUEL" isFuel="1" prodCode="pc-1" />
     <department sysid="dept-2" name="FAKE GROCERY" isFuel="0" />
   </departments>
-  <prodCodes maxRecords="20">
+  <prodCodes maxRecords="30">
     <prodCode sysid="pc-1" name="FAKE FUEL CODE" isFuel="1" />
     <prodCode sysid="pc-2" name="FAKE GROCERY CODE" isFuel="0" />
   </prodCodes>

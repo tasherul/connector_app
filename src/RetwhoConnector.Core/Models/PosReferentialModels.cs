@@ -30,10 +30,20 @@ public sealed record ReferenceDefinition
         new Dictionary<string, string>(StringComparer.Ordinal);
 }
 
-public sealed record ReferentialIntegrityLimits
+public sealed record ReferentialDatasetLimits
 {
     public required int MaxRecords { get; init; }
-    public required int MaxFeesPerItem { get; init; }
+    public int? MaxFeesPerItem { get; init; }
+}
+
+public sealed record ReferentialIntegrityLimits
+{
+    public ReferentialDatasetLimits? TaxRates { get; init; }
+    public ReferentialDatasetLimits? Departments { get; init; }
+    public ReferentialDatasetLimits? ProdCodes { get; init; }
+    public ReferentialDatasetLimits? AgeValidations { get; init; }
+    public ReferentialDatasetLimits? BlueLaws { get; init; }
+    public ReferentialDatasetLimits? Fees { get; init; }
 }
 
 public sealed record ReferentialIntegrityResult

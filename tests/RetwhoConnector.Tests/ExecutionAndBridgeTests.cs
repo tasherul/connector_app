@@ -300,6 +300,49 @@ public sealed class ExecutionAndBridgeTests
         Assert.Equal(1, authentication.Calls);
         Assert.Equal(2, data.OperationCalls);
         Assert.Equal("FAKE_NEW_COOKIE", settingsService.Settings!.PosCookie);
+        Assert.Equal(
+            PosAuthenticationState.Authenticated,
+            coordinator.CurrentStatus.PosAuthentication);
+    }
+
+    [Fact]
+    public async Task Coordinator_FailedRefreshLoginLeavesExplicitAuthenticationFailure()
+    {
+        var settings = CreateSettings() with { PosCookie = "FAKE_EXPIRED_COOKIE" };
+        var settingsService = new FakeSettingsService(settings);
+        var authentication = new FakeAuthenticationService
+        {
+            Exception = new PosAuthenticationException(
+                "POS_LOGIN_FAILED",
+                "The POS rejected the configured credentials."),
+        };
+        var data = new FakeDataService { FailFirstWithAuthError = true };
+        var coordinator = CreateCoordinator(
+            settingsService,
+            authentication,
+            data);
+        BridgeAcknowledgement? sent = null;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            },
+            "get_referential_integrity");
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.False(sent!.Ok);
+        Assert.StartsWith("POS_LOGIN_FAILED:", sent.Error, StringComparison.Ordinal);
+        Assert.Equal(1, authentication.Calls);
+        Assert.Equal(1, data.OperationCalls);
+        Assert.Equal(
+            PosAuthenticationState.AuthenticationFailed,
+            coordinator.CurrentStatus.PosAuthentication);
+        Assert.NotEqual(
+            PosAuthenticationState.RefreshingSession,
+            coordinator.CurrentStatus.PosAuthentication);
+        Assert.Equal(LastCommandState.Failed, coordinator.CurrentStatus.LastCommand);
     }
 
     [Theory]
@@ -336,6 +379,9 @@ public sealed class ExecutionAndBridgeTests
         Assert.Equal(1, authentication.Calls);
         Assert.Equal(2, data.OperationCalls);
         Assert.Equal("FAKE_NEW_COOKIE", settingsService.Settings!.PosCookie);
+        Assert.Equal(
+            PosAuthenticationState.AuthenticationFailed,
+            coordinator.CurrentStatus.PosAuthentication);
     }
 
     [Theory]
@@ -838,12 +884,18 @@ public sealed class ExecutionAndBridgeTests
     private sealed class FakeAuthenticationService : IPosAuthenticationService
     {
         public int Calls { get; private set; }
+        public Exception? Exception { get; init; }
 
         public Task<PosSession> LoginAsync(
             ConnectorSettings settings,
             CancellationToken cancellationToken)
         {
             Calls++;
+            if (Exception is not null)
+            {
+                return Task.FromException<PosSession>(Exception);
+            }
+
             return Task.FromResult(new PosSession
             {
                 Cookie = "FAKE_NEW_COOKIE",
@@ -890,8 +942,11 @@ public sealed class ExecutionAndBridgeTests
                 SiteId = "6720",
                 Limits = new ReferentialIntegrityLimits
                 {
-                    MaxRecords = 100,
-                    MaxFeesPerItem = 10,
+                    Fees = new ReferentialDatasetLimits
+                    {
+                        MaxRecords = 100,
+                        MaxFeesPerItem = 10,
+                    },
                 },
                 FetchedAtUtc = DateTimeOffset.UnixEpoch,
             };

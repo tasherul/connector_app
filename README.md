@@ -95,7 +95,7 @@ The dashboard has a compact status rail with four accessible segments:
 |---|---|
 | Config | **Configured**, **Missing configuration**, or **Invalid** |
 | `connector.retwho.com` | **Connected**, **Connecting**, **Reconnecting**, **Offline**, **Authentication failed**, or **Session replaced** |
-| Agent | **Active** only when registered; otherwise **Idle**, **Inactive**, or **Error** |
+| Agent | **Active** only when registered and POS-ready; otherwise **Refreshing**, **Idle**, **Inactive**, or **Error** |
 | Logs | **Healthy**, **Degraded** with a dropped-entry count, or **Stopped** |
 
 Green indicates success, yellow indicates session/warning or transitional
@@ -205,8 +205,9 @@ reconnection.
 4. It sends a fresh POS `vdatetime` request.
 5. If HTTP 401/403, the existing bounded expiry heuristic, or the exact
    Sapphire fault `CGIPortal.LoginRequired` reports an expired session, it
-   performs one `validate` login and one `vdatetime` retry. The replacement
-   XML cookie is encrypted before the retry result is acknowledged.
+   performs one `validate` login and one retry of the original POS data action.
+   The replacement XML cookie is encrypted before the retry result is
+   acknowledged.
 6. It parses XML, maps it to camelCase JSON, checks the one-MiB bridge limit,
    and acknowledges exactly once.
 
@@ -336,8 +337,12 @@ Synthetic request and abbreviated result:
     "command": "vrefinteg",
     "siteId": "FAKE-SITE",
     "limits": {
-      "maxRecords": 100,
-      "maxFeesPerItem": 8
+      "taxRates": { "maxRecords": 10 },
+      "departments": { "maxRecords": 20 },
+      "prodCodes": { "maxRecords": 30 },
+      "ageValidations": { "maxRecords": 8 },
+      "blueLaws": { "maxRecords": 0 },
+      "fees": { "maxRecords": 25, "maxFeesPerItem": 8 }
     },
     "taxRates": [],
     "departments": [],
@@ -359,9 +364,10 @@ metadata.
 
 Every POS data action first tries the saved cookie once. If the POS identifies
 an expired session through HTTP or the supported XML fault, the connector
-performs one `validate` login and one retry, atomically saving the replacement
-encrypted cookie before retrying the original action. A second authentication
-failure returns `POS_AUTH_EXPIRED`; it does not cause another login or retry.
+performs one `validate` login and one retry of the original POS data action,
+atomically saving the replacement encrypted cookie before retrying it. A
+second authentication failure returns `POS_AUTH_EXPIRED`; it does not cause
+another login or retry.
 
 ## Required NAXML request profile
 

@@ -18,9 +18,13 @@ public sealed class ReferentialIntegrityXmlMapper
             SiteId = RequiredChildValue(root, "site"),
             Limits = new ReferentialIntegrityLimits
             {
-                MaxRecords = ParseNonNegativeInteger(RequiredAttributeValue(fees, "maxRecords")),
-                MaxFeesPerItem = ParseNonNegativeInteger(
-                    RequiredAttributeValue(fees, "maxFeesPerItem")),
+                TaxRates = ParseDatasetLimits(OptionalChild(root, "taxRates")),
+                Departments = ParseDatasetLimits(OptionalChild(root, "departments")),
+                ProdCodes = ParseDatasetLimits(OptionalChild(root, "prodCodes")),
+                AgeValidations = ParseDatasetLimits(
+                    OptionalChild(root, "ageValidations")),
+                BlueLaws = ParseDatasetLimits(OptionalChild(root, "blueLaws")),
+                Fees = ParseDatasetLimits(fees, includeMaxFeesPerItem: true),
             },
             TaxRates = ParseNamedReferences(root, "taxRates", "taxRate"),
             Departments = ParseDepartments(root),
@@ -147,6 +151,20 @@ public sealed class ReferentialIntegrityXmlMapper
         "1" => true,
         _ => throw Invalid("The POS response contains an invalid boolean value."),
     };
+
+    private static ReferentialDatasetLimits? ParseDatasetLimits(
+        XElement? container,
+        bool includeMaxFeesPerItem = false) => container is null
+        ? null
+        : new ReferentialDatasetLimits
+        {
+            MaxRecords = ParseNonNegativeInteger(
+                RequiredAttributeValue(container, "maxRecords")),
+            MaxFeesPerItem = includeMaxFeesPerItem
+                ? ParseNonNegativeInteger(
+                    RequiredAttributeValue(container, "maxFeesPerItem"))
+                : null,
+        };
 
     private static int ParseNonNegativeInteger(string text)
     {

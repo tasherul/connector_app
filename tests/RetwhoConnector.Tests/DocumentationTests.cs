@@ -63,7 +63,7 @@ public sealed class DocumentationTests
             readme,
             StringComparison.Ordinal);
         Assert.Contains(
-            "one `validate` login and one `vdatetime` retry",
+            "one `validate` login and one retry of the original POS data action",
             readme,
             StringComparison.Ordinal);
         Assert.Contains(
