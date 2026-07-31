@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using RetwhoConnector.Core.Abstractions;
 using RetwhoConnector.Core.Configuration;
+using RetwhoConnector.Core.Exceptions;
 using RetwhoConnector.Core.Models;
 using RetwhoConnector.Core.Serialization;
 
@@ -60,13 +61,23 @@ public sealed class PosHttpClient(
         }
         catch (Exception exception)
         {
+            Exception mapped = MapCertificateRejection(
+                request,
+                exception);
             WriteFailure(
                 requestDiagnostic,
                 response,
-                "transportError",
+                mapped is ConnectorException connector
+                    ? connector.Code
+                    : "transportError",
                 stopwatch.ElapsedMilliseconds,
-                exception);
-            throw;
+                mapped);
+            if (ReferenceEquals(mapped, exception))
+            {
+                throw;
+            }
+
+            throw mapped;
         }
         finally
         {
@@ -255,6 +266,34 @@ public sealed class PosHttpClient(
         }
 
         return isHttpSuccess ? "success" : "httpError";
+    }
+
+    private static Exception MapCertificateRejection(
+        HttpRequestMessage request,
+        Exception exception)
+    {
+        if (exception is not HttpRequestException ||
+            !request.Options.TryGetValue(
+                PosHttpRequestFactory.CertificateDecisionKey,
+                out CertificateValidationDecision? decision) ||
+            decision is null ||
+            !decision.IsRejected)
+        {
+            return exception;
+        }
+
+        bool hasPin = request.Options.TryGetValue(
+            PosHttpRequestFactory.CertificatePinKey,
+            out string? pin) &&
+            !string.IsNullOrWhiteSpace(pin);
+        return new PosCertificateException(
+            hasPin
+                ? "POS_CERTIFICATE_CHANGED"
+                : "POS_CERTIFICATE_UNTRUSTED",
+            hasPin
+                ? "The POS certificate no longer matches the approved fingerprint."
+                : "The POS certificate is not trusted. Open Settings to inspect and approve it.",
+            exception);
     }
 
     private sealed record RequestDiagnostic(

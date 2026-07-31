@@ -4,6 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using RetwhoConnector.Core.Abstractions;
 using RetwhoConnector.Core.Configuration;
+using RetwhoConnector.Core.Exceptions;
 using RetwhoConnector.Core.Models;
 using RetwhoConnector.Core.Security;
 using RetwhoConnector.Core.Services;
@@ -159,6 +160,71 @@ public sealed class PosHttpClientTests
     }
 
     [Fact]
+    public async Task SendAsync_RejectedPinnedCertificateMapsToChanged()
+    {
+        var log = new RecordingAgentLog();
+        using var httpClient = new HttpClient(
+            new CertificateRejectingHandler());
+        IPosHttpClient transport = new PosHttpClient(
+            httpClient,
+            new PosResponseReader(),
+            new PosOptions(),
+            log,
+            new LogSanitizer());
+        using HttpRequestMessage request =
+            new PosHttpRequestFactory(new PosOptions())
+                .CreateLogin(CreateSettings() with
+                {
+                    PinnedCertificateSha256 = new string('A', 64),
+                });
+
+        PosCertificateException exception =
+            await Assert.ThrowsAsync<PosCertificateException>(
+                () => transport.SendAsync(
+                    request,
+                    CancellationToken.None));
+
+        Assert.Equal("POS_CERTIFICATE_CHANGED", exception.Code);
+        RecordedLog entry = Assert.Single(log.Entries);
+        Assert.Contains(
+            "POS_CERTIFICATE_CHANGED",
+            entry.Details,
+            StringComparison.Ordinal);
+        AssertSafeDiagnostic(entry.Details!);
+    }
+
+    [Fact]
+    public async Task SendAsync_RejectedUnpinnedCertificateMapsToUntrusted()
+    {
+        var log = new RecordingAgentLog();
+        using var httpClient = new HttpClient(
+            new CertificateRejectingHandler());
+        IPosHttpClient transport = new PosHttpClient(
+            httpClient,
+            new PosResponseReader(),
+            new PosOptions(),
+            log,
+            new LogSanitizer());
+        using HttpRequestMessage request =
+            new PosHttpRequestFactory(new PosOptions())
+                .CreateLogin(CreateSettings());
+
+        PosCertificateException exception =
+            await Assert.ThrowsAsync<PosCertificateException>(
+                () => transport.SendAsync(
+                    request,
+                    CancellationToken.None));
+
+        Assert.Equal("POS_CERTIFICATE_UNTRUSTED", exception.Code);
+        RecordedLog entry = Assert.Single(log.Entries);
+        Assert.Contains(
+            "POS_CERTIFICATE_UNTRUSTED",
+            entry.Details,
+            StringComparison.Ordinal);
+        AssertSafeDiagnostic(entry.Details!);
+    }
+
+    [Fact]
     public void Handler_RestrictsPosTlsToVersions12And13()
     {
         using var handler = Assert.IsType<HttpClientHandler>(
@@ -219,6 +285,22 @@ public sealed class PosHttpClientTests
             CancellationToken cancellationToken) =>
             throw new HttpRequestException(
                 $"Request failed for {request.RequestUri}");
+    }
+
+    private sealed class CertificateRejectingHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Assert.True(request.Options.TryGetValue(
+                PosHttpRequestFactory.CertificateDecisionKey,
+                out CertificateValidationDecision? decision));
+            Assert.NotNull(decision);
+            decision.Reject();
+            throw new HttpRequestException(
+                "The fake certificate callback rejected the certificate.");
+        }
     }
 
     private sealed class RecordingAgentLog : IAgentLog

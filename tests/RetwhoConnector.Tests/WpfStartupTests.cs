@@ -37,6 +37,24 @@ public sealed class WpfStartupTests
     }
 
     [Fact]
+    public void Application_RemovesFrameworkLoggersFromPosHttpClient()
+    {
+        string source = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "App.xaml.cs.txt"));
+
+        Assert.Contains(
+            "AddHttpClient<PosHttpClient>()",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            ".RemoveAllLoggers()",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MainWindow_HidesOnCloseAndMinimizeUntilExplicitExit()
     {
         string source = File.ReadAllText(Path.Combine(

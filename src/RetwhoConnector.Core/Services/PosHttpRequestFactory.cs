@@ -14,6 +14,10 @@ public sealed class PosHttpRequestFactory(PosOptions options)
         new("RetwhoConnector.CertificatePin");
     internal static readonly HttpRequestOptionsKey<string> CommandKey =
         new("RetwhoConnector.PosCommand");
+    internal static readonly
+        HttpRequestOptionsKey<CertificateValidationDecision>
+        CertificateDecisionKey =
+            new("RetwhoConnector.CertificateDecision");
 
     public HttpRequestMessage CreateLogin(ConnectorSettings settings) =>
         Create(
@@ -80,6 +84,9 @@ public sealed class PosHttpRequestFactory(PosOptions options)
         Add(request, "sec-ch-ua-platform", PosCompatibilityHeaders.SecChUaPlatform);
         request.Options.Set(ConfiguredOriginKey, origin);
         request.Options.Set(
+            CertificateDecisionKey,
+            new CertificateValidationDecision());
+        request.Options.Set(
             CommandKey,
             parameters.First(pair =>
                 pair.Key.Equals("cmd", StringComparison.Ordinal)).Value);
@@ -104,4 +111,15 @@ public sealed class PosHttpRequestFactory(PosOptions options)
                 $"The fixed POS compatibility header '{name}' could not be added.");
         }
     }
+}
+
+internal sealed class CertificateValidationDecision
+{
+    private int _rejected;
+
+    public bool IsRejected =>
+        Volatile.Read(ref _rejected) != 0;
+
+    public void Reject() =>
+        Interlocked.Exchange(ref _rejected, 1);
 }

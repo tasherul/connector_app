@@ -192,6 +192,7 @@ public partial class App : System.Windows.Application
                 services.AddSingleton<IVdatetimeXmlMapper, VdatetimeXmlMapper>();
                 services.AddSingleton<PosHttpRequestFactory>();
                 services.AddHttpClient<PosHttpClient>()
+                    .RemoveAllLoggers()
                     .ConfigurePrimaryHttpMessageHandler(provider =>
                         PosHttpClientHandlerFactory.Create(
                             provider.GetRequiredService<ICertificateTrustService>()));
