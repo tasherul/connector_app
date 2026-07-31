@@ -109,7 +109,7 @@
                         </Grid>
                         <TextBlock Text="Last JSON result" Style="{StaticResource SectionHeaderStyle}"
                                    Margin="0,20,0,8" />
-                        <TextBox Text="{Binding LastJsonResult}" IsReadOnly="True"
+                        <TextBox Text="{Binding LastJsonResult, Mode=OneWay}" IsReadOnly="True"
                                  AcceptsReturn="True" FontFamily="Consolas"
                                  MinHeight="220" VerticalScrollBarVisibility="Auto"
                                  HorizontalScrollBarVisibility="Auto" />
