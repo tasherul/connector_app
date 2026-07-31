@@ -30,8 +30,14 @@
     <None Include="..\..\src\RetwhoConnector.App\App.xaml"
           Link="Fixtures\App.xaml"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\RetwhoConnector.App\App.xaml.cs"
+          Link="Fixtures\App.xaml.cs.txt"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\src\RetwhoConnector.App\MainWindow.xaml"
           Link="Fixtures\MainWindow.xaml"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\RetwhoConnector.App\MainWindow.xaml.cs"
+          Link="Fixtures\MainWindow.xaml.cs.txt"
           CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\src\RetwhoConnector.App\ConfigurationWindow.xaml"
           Link="Fixtures\ConfigurationWindow.xaml"

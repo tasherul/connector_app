@@ -20,6 +20,8 @@ public partial class App : System.Windows.Application
 {
     private readonly CancellationTokenSource _applicationSource = new();
     private IHost? _host;
+    private StartupMarkerService? _startupMarker;
+    private ITrayIconService? _trayIcon;
     private Mutex? _singleInstanceMutex;
     private bool _ownsSingleInstanceMutex;
 
@@ -72,6 +74,29 @@ public partial class App : System.Windows.Application
             startupStage = "starting application services";
             await host.StartAsync(_applicationSource.Token);
 
+            startupStage = "checking the previous shutdown";
+            StartupMarkerService startupMarker =
+                host.Services.GetRequiredService<StartupMarkerService>();
+            _startupMarker = startupMarker;
+            try
+            {
+                if (startupMarker.BeginSession())
+                {
+                    host.Services.GetRequiredService<IAgentLog>().TryWrite(
+                        AgentLogLevel.Warning,
+                        AgentLogCategory.Session,
+                        "The previous agent session did not shut down cleanly.");
+                }
+            }
+            catch (Exception exception)
+            {
+                host.Services.GetRequiredService<IAgentLog>().TryWrite(
+                    AgentLogLevel.Warning,
+                    AgentLogCategory.Error,
+                    "Startup health tracking is unavailable.",
+                    exception.GetType().FullName);
+            }
+
             startupStage = "loading saved settings";
             MainWindowViewModel viewModel =
                 host.Services.GetRequiredService<MainWindowViewModel>();
@@ -80,12 +105,15 @@ public partial class App : System.Windows.Application
             startupStage = "creating the main window";
             MainWindow window = await Dispatcher.InvokeAsync(
                 () => host.Services.GetRequiredService<MainWindow>());
+            ITrayIconService trayIcon =
+                host.Services.GetRequiredService<ITrayIconService>();
+            _trayIcon = trayIcon;
 
             startupStage = "showing the main window";
             await Dispatcher.InvokeAsync(() =>
             {
                 MainWindow = window;
-                ShutdownMode = ShutdownMode.OnMainWindowClose;
+                trayIcon.Initialize(window);
                 window.Show();
             });
         }
@@ -129,6 +157,17 @@ public partial class App : System.Windows.Application
                 services.AddSingleton(new AgentLoggingOptions());
                 services.AddSingleton(new LogStorageOptions());
                 services.AddSingleton(TimeProvider.System);
+                services.AddSingleton(provider =>
+                {
+                    string localData = Environment.GetFolderPath(
+                        Environment.SpecialFolder.LocalApplicationData);
+                    return new StartupMarkerService(
+                        Path.Combine(
+                            localData,
+                            "RetwhoConnector",
+                            "agent.running"),
+                        provider.GetRequiredService<TimeProvider>());
+                });
                 services.AddSingleton<ILogSanitizer, LogSanitizer>();
                 services.AddSingleton<IAgentLogSink>(provider =>
                     new RollingFileLogSink(
@@ -190,6 +229,7 @@ public partial class App : System.Windows.Application
                 services.AddSingleton<
                     IConfigurationDialogService,
                     ConfigurationDialogService>();
+                services.AddSingleton<ITrayIconService, TrayIconService>();
                 services.AddTransient<ConfigurationWindowViewModel>();
                 services.AddSingleton<MainWindowViewModel>();
                 services.AddSingleton<MainWindow>();
@@ -199,14 +239,39 @@ public partial class App : System.Windows.Application
     protected override async void OnExit(ExitEventArgs e)
     {
         _applicationSource.Cancel();
+        bool hostStoppedCleanly = _host is null;
         if (_host is not null)
         {
             try
             {
                 await _host.StopAsync(TimeSpan.FromSeconds(5));
+                hostStoppedCleanly = true;
+            }
+            catch (Exception exception)
+            {
+                Log.Error(
+                    "Application services did not stop cleanly ({ExceptionType})",
+                    exception.GetType().FullName);
             }
             finally
             {
+                _trayIcon?.Dispose();
+                _trayIcon = null;
+                if (hostStoppedCleanly)
+                {
+                    try
+                    {
+                        _startupMarker?.CompleteSession();
+                    }
+                    catch (Exception exception)
+                    {
+                        Log.Error(
+                            "The clean shutdown marker could not be removed " +
+                            "({ExceptionType})",
+                            exception.GetType().FullName);
+                    }
+                }
+
                 if (_host is IAsyncDisposable asyncDisposable)
                 {
                     await asyncDisposable.DisposeAsync();
@@ -216,6 +281,11 @@ public partial class App : System.Windows.Application
                     _host.Dispose();
                 }
             }
+        }
+        else
+        {
+            _trayIcon?.Dispose();
+            _trayIcon = null;
         }
 
         if (_ownsSingleInstanceMutex)

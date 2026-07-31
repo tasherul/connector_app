@@ -19,6 +19,38 @@ public sealed class WpfStartupTests
     }
 
     [Fact]
+    public void Application_DoesNotReplaceExplicitShutdownModeAtRuntime()
+    {
+        string source = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "App.xaml.cs.txt"));
+
+        Assert.DoesNotContain(
+            "ShutdownMode.OnMainWindowClose",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "trayIcon.Initialize(window)",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MainWindow_HidesOnCloseAndMinimizeUntilExplicitExit()
+    {
+        string source = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "MainWindow.xaml.cs.txt"));
+
+        Assert.Contains("e.Cancel = true", source, StringComparison.Ordinal);
+        Assert.Contains("WindowState.Minimized", source, StringComparison.Ordinal);
+        Assert.Contains("Hide()", source, StringComparison.Ordinal);
+        Assert.Contains("IsExitRequested", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MainWindow_ExposesApprovedDashboardAndActivityFeed()
     {
         string path = Path.Combine(

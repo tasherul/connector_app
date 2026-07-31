@@ -52,7 +52,8 @@ public sealed class MainWindowViewModel : ObservableObject
         OpenLogsFolderCommand = new RelayCommand(
             OpenLogsFolder,
             () => !IsBusy);
-        ExitCommand = new RelayCommand(_applicationControl.RequestExit);
+        ExitCommand = new AsyncRelayCommand(
+            _applicationControl.RequestExitAsync);
 
         _orchestration.StatusChanged += OnStatusChanged;
         _agentLog.HealthChanged += OnLoggingHealthChanged;
@@ -114,7 +115,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public IAsyncRelayCommand OpenSettingsCommand { get; }
     public IAsyncRelayCommand ToggleConnectionCommand { get; }
     public IRelayCommand OpenLogsFolderCommand { get; }
-    public IRelayCommand ExitCommand { get; }
+    public IAsyncRelayCommand ExitCommand { get; }
 
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
