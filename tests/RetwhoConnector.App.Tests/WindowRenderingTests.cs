@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Media;
 
 namespace RetwhoConnector.App.Tests;
 
@@ -50,7 +51,7 @@ public sealed class WindowRenderingTests(StaTestRunner staTestRunner)
     }
 
     [Fact]
-    public async Task MainWindow_ProvidesStyledButtonResourcesAndFocusTemplate()
+    public async Task MainWindow_AppliesFocusedAndDisabledButtonVisualStates()
     {
         await staTestRunner.RunAsync(() =>
         {
@@ -58,6 +59,7 @@ public sealed class WindowRenderingTests(StaTestRunner staTestRunner)
             MainWindow window = harness.CreateMainWindow();
             window.Measure(new Size(1120, 760));
             window.Arrange(new Rect(0, 0, 1120, 760));
+            window.Show();
             window.UpdateLayout();
 
             string[] actionNames =
@@ -79,6 +81,33 @@ public sealed class WindowRenderingTests(StaTestRunner staTestRunner)
                 Assert.NotNull(button.TryFindResource("DisabledBackgroundBrush"));
                 Assert.NotNull(button.TryFindResource("DisabledTextBrush"));
             }
+
+            Button focusedButton = FindButton(window, "Open connection settings");
+            Assert.True(focusedButton.Focus());
+            window.UpdateLayout();
+            Assert.True(focusedButton.IsKeyboardFocused);
+            Border focusRing = Assert.IsType<Border>(
+                GetTemplate(focusedButton).FindName("FocusRing", focusedButton));
+            Assert.Equal(1d, focusRing.Opacity);
+
+            Button disabledButton = FindButton(window, "Open logs folder");
+            disabledButton.IsEnabled = false;
+            disabledButton.ApplyTemplate();
+            window.UpdateLayout();
+
+            Assert.False(disabledButton.IsEnabled);
+            Border disabledBorder = Assert.IsType<Border>(
+                GetTemplate(disabledButton).FindName("ButtonBorder", disabledButton));
+            SolidColorBrush expectedBackground = Assert.IsType<SolidColorBrush>(
+                disabledButton.TryFindResource("DisabledBackgroundBrush"));
+            SolidColorBrush expectedForeground = Assert.IsType<SolidColorBrush>(
+                disabledButton.TryFindResource("DisabledTextBrush"));
+            Assert.Equal(
+                expectedBackground.Color,
+                Assert.IsType<SolidColorBrush>(disabledBorder.Background).Color);
+            Assert.Equal(
+                expectedForeground.Color,
+                Assert.IsType<SolidColorBrush>(disabledButton.Foreground).Color);
 
             harness.RequestExit();
             window.Close();
@@ -126,4 +155,12 @@ public sealed class WindowRenderingTests(StaTestRunner staTestRunner)
             }
         }
     }
+
+    private static Button FindButton(MainWindow window, string automationName) =>
+        Assert.Single(
+            FindDescendants<Button>(window),
+            candidate => AutomationProperties.GetName(candidate) == automationName);
+
+    private static ControlTemplate GetTemplate(Button button) =>
+        Assert.IsType<ControlTemplate>(button.Template);
 }
