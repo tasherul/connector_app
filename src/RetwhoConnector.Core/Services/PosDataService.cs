@@ -15,18 +15,24 @@ public sealed class PosDataService : IPosDataService
         ["expired", "invalid", "unauthorized", "denied"];
     private readonly IPosHttpClient _httpClient;
     private readonly PosHttpRequestFactory _requestFactory;
-    private readonly IVdatetimeXmlMapper _mapper;
+    private readonly IVdatetimeXmlMapper _vdatetimeMapper;
+    private readonly PluXmlMapper _pluMapper;
+    private readonly ReferentialIntegrityXmlMapper _referentialIntegrityMapper;
     private readonly TimeProvider _timeProvider;
 
     public PosDataService(
         IPosHttpClient httpClient,
         PosHttpRequestFactory requestFactory,
-        IVdatetimeXmlMapper mapper,
+        IVdatetimeXmlMapper vdatetimeMapper,
+        PluXmlMapper pluMapper,
+        ReferentialIntegrityXmlMapper referentialIntegrityMapper,
         TimeProvider timeProvider)
     {
         _httpClient = httpClient;
         _requestFactory = requestFactory;
-        _mapper = mapper;
+        _vdatetimeMapper = vdatetimeMapper;
+        _pluMapper = pluMapper;
+        _referentialIntegrityMapper = referentialIntegrityMapper;
         _timeProvider = timeProvider;
     }
 
@@ -46,6 +52,8 @@ public sealed class PosDataService : IPosDataService
                 new LogSanitizer()),
             requestFactory,
             mapper,
+            new PluXmlMapper(),
+            new ReferentialIntegrityXmlMapper(),
             timeProvider)
     {
     }
@@ -58,6 +66,63 @@ public sealed class PosDataService : IPosDataService
         ArgumentException.ThrowIfNullOrWhiteSpace(cookie);
         using HttpRequestMessage request =
             _requestFactory.CreateVdatetime(settings, cookie);
+        return await SendAndMapAsync(
+            request,
+            _vdatetimeMapper.Parse,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<PluPageResult> GetPluPageAsync(
+        ConnectorSettings settings,
+        string cookie,
+        PluPageQuery query,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(cookie);
+        using HttpRequestMessage request =
+            _requestFactory.CreatePluPage(settings, cookie, query);
+        return await SendAndMapAsync(
+            request,
+            (xml, fetchedAtUtc) =>
+                _pluMapper.ParsePage(xml, query, fetchedAtUtc),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<PluLookupResult> GetPluAsync(
+        ConnectorSettings settings,
+        string cookie,
+        PluLookupQuery query,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(cookie);
+        using HttpRequestMessage request =
+            _requestFactory.CreatePlu(settings, cookie, query);
+        return await SendAndMapAsync(
+            request,
+            (xml, fetchedAtUtc) =>
+                _pluMapper.ParseLookup(xml, query, fetchedAtUtc),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<ReferentialIntegrityResult> GetReferentialIntegrityAsync(
+        ConnectorSettings settings,
+        string cookie,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(cookie);
+        using HttpRequestMessage request =
+            _requestFactory.CreateReferentialIntegrity(settings, cookie);
+        return await SendAndMapAsync(
+            request,
+            _referentialIntegrityMapper.Parse,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<TResult> SendAndMapAsync<TResult>(
+        HttpRequestMessage request,
+        Func<string, DateTimeOffset, TResult> map,
+        CancellationToken cancellationToken)
+    {
         PosHttpResponse posResponse = await _httpClient.SendAsync(
             request,
             cancellationToken).ConfigureAwait(false);
@@ -77,7 +142,7 @@ public sealed class PosDataService : IPosDataService
 
         try
         {
-            return _mapper.Parse(
+            return map(
                 posResponse.Body,
                 _timeProvider.GetUtcNow());
         }

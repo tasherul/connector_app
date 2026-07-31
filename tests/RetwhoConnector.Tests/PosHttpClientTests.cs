@@ -127,6 +127,98 @@ public sealed class PosHttpClientTests
             StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("page", "vPLUs")]
+    [InlineData("lookup", "vPLUs")]
+    [InlineData("referential", "vrefinteg")]
+    public async Task SendAsync_NewDataRequestsLogOnlySafeMetadata(
+        string operation,
+        string expectedCommand)
+    {
+        string responseBody = operation == "referential"
+            ? File.ReadAllText(Path.Combine(
+                AppContext.BaseDirectory,
+                "Fixtures",
+                "referential-integrity-success.xml"))
+            : File.ReadAllText(Path.Combine(
+                AppContext.BaseDirectory,
+                "Fixtures",
+                "plu-page-success.xml"));
+        var log = new RecordingAgentLog();
+        using var httpClient = new HttpClient(
+            new StaticHandler(
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(responseBody),
+                }));
+        IPosHttpClient transport = new PosHttpClient(
+            httpClient,
+            new PosResponseReader(),
+            new PosOptions(),
+            log,
+            new LogSanitizer());
+        var factory = new PosHttpRequestFactory(new PosOptions());
+        using HttpRequestMessage request = operation switch
+        {
+            "page" => factory.CreatePluPage(
+                CreateSettings(),
+                "FAKE_COOKIE",
+                new PluPageQuery(2, 25)),
+            "lookup" => factory.CreatePlu(
+                CreateSettings(),
+                "FAKE_COOKIE",
+                new PluLookupQuery("00000000000001", "000")),
+            "referential" => factory.CreateReferentialIntegrity(
+                CreateSettings(),
+                "FAKE_COOKIE"),
+            _ => throw new ArgumentOutOfRangeException(nameof(operation)),
+        };
+
+        await transport.SendAsync(request, CancellationToken.None);
+
+        RecordedLog entry = Assert.Single(log.Entries);
+        Assert.Contains(expectedCommand, entry.Message, StringComparison.Ordinal);
+        Assert.NotNull(entry.Details);
+        using JsonDocument diagnostic = JsonDocument.Parse(entry.Details);
+        Assert.Equal(
+            expectedCommand,
+            diagnostic.RootElement
+                .GetProperty("request")
+                .GetProperty("command")
+                .GetString());
+        Assert.True(
+            diagnostic.RootElement
+                .GetProperty("request")
+                .GetProperty("contentLength")
+                .GetInt64() > 0);
+        Assert.Equal(
+            200,
+            diagnostic.RootElement
+                .GetProperty("response")
+                .GetProperty("statusCode")
+                .GetInt32());
+        Assert.Equal(
+            responseBody.Length,
+            diagnostic.RootElement
+                .GetProperty("response")
+                .GetProperty("responseCharacters")
+                .GetInt32());
+        Assert.True(
+            diagnostic.RootElement
+                .GetProperty("elapsedMilliseconds")
+                .GetInt64() >= 0);
+        string completeEntry = entry.Message + entry.Details;
+        AssertSafeDiagnostic(completeEntry);
+        Assert.DoesNotContain("PLUSelect", completeEntry, StringComparison.Ordinal);
+        Assert.DoesNotContain("FAKE PRODUCT", completeEntry, StringComparison.Ordinal);
+        Assert.DoesNotContain("FAKE-SITE-17", completeEntry, StringComparison.Ordinal);
+        Assert.DoesNotContain("FAKE TAX", completeEntry, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "https://pos.example.test",
+            completeEntry,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task SendAsync_FailureDoesNotLogCredentialBearingUri()
     {

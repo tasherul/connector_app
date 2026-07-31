@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Net;
 using System.Text;
+using RetwhoConnector.Core.Abstractions;
 using RetwhoConnector.Core.Configuration;
 using RetwhoConnector.Core.Exceptions;
 using RetwhoConnector.Core.Models;
@@ -118,6 +119,42 @@ public sealed class PosProtocolEdgeTests
         Assert.Equal("POS_INVALID_RESPONSE", exception.Code);
     }
 
+    [Theory]
+    [InlineData("page")]
+    [InlineData("lookup")]
+    [InlineData("referential")]
+    public async Task PosData_MissingCookieStopsBeforeCreatingNewRequest(
+        string operation)
+    {
+        var transport = new StaticPosHttpClient("<unused />");
+        var service = CreateDataService(transport);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => InvokeNewOperationAsync(service, operation, " "));
+
+        Assert.Equal(0, transport.CallCount);
+    }
+
+    [Theory]
+    [InlineData("page")]
+    [InlineData("lookup")]
+    [InlineData("referential")]
+    public async Task PosData_NewOperationsPreserveInvalidXml(
+        string operation)
+    {
+        var transport = new StaticPosHttpClient("<not-closed");
+        var service = CreateDataService(transport);
+
+        PosResponseException exception =
+            await Assert.ThrowsAsync<PosResponseException>(
+                () => InvokeNewOperationAsync(
+                    service,
+                    operation,
+                    "FAKE_COOKIE"));
+
+        Assert.Equal("POS_INVALID_XML", exception.Code);
+    }
+
     private static async Task<byte[]> CompressAsync(
         byte[] bytes,
         string encoding)
@@ -147,6 +184,37 @@ public sealed class PosProtocolEdgeTests
             LicenseKey = "FAKE-LICENSE-001",
         };
 
+    private static PosDataService CreateDataService(IPosHttpClient transport) =>
+        new(
+            transport,
+            new PosHttpRequestFactory(new PosOptions()),
+            new VdatetimeXmlMapper(),
+            new PluXmlMapper(),
+            new ReferentialIntegrityXmlMapper(),
+            TimeProvider.System);
+
+    private static async Task<object> InvokeNewOperationAsync(
+        PosDataService service,
+        string operation,
+        string cookie) => operation switch
+        {
+            "page" => await service.GetPluPageAsync(
+                CreateSettings(),
+                cookie,
+                new PluPageQuery(1, 100),
+                CancellationToken.None),
+            "lookup" => await service.GetPluAsync(
+                CreateSettings(),
+                cookie,
+                new PluLookupQuery("00000000000001", "000"),
+                CancellationToken.None),
+            "referential" => await service.GetReferentialIntegrityAsync(
+                CreateSettings(),
+                cookie,
+                CancellationToken.None),
+            _ => throw new ArgumentOutOfRangeException(nameof(operation)),
+        };
+
     private sealed class StaticHandler(HttpResponseMessage response)
         : HttpMessageHandler
     {
@@ -154,5 +222,25 @@ public sealed class PosProtocolEdgeTests
             HttpRequestMessage request,
             CancellationToken cancellationToken) =>
             Task.FromResult(response);
+    }
+
+    private sealed class StaticPosHttpClient(string body) : IPosHttpClient
+    {
+        public int CallCount { get; private set; }
+
+        public Task<PosHttpResponse> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+            return Task.FromResult(new PosHttpResponse
+            {
+                Metadata = new PosResponseMetadata
+                {
+                    StatusCode = 200,
+                },
+                Body = body,
+            });
+        }
     }
 }

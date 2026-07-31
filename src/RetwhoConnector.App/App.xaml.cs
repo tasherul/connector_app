@@ -190,6 +190,8 @@ public partial class App : System.Windows.Application
                 services.AddSingleton<ICertificateTrustService, CertificateTrustService>();
                 services.AddSingleton<IPosResponseReader, PosResponseReader>();
                 services.AddSingleton<IVdatetimeXmlMapper, VdatetimeXmlMapper>();
+                services.AddSingleton<PluXmlMapper>();
+                services.AddSingleton<ReferentialIntegrityXmlMapper>();
                 services.AddSingleton<PosHttpRequestFactory>();
                 services.AddHttpClient<PosHttpClient>()
                     .RemoveAllLoggers()

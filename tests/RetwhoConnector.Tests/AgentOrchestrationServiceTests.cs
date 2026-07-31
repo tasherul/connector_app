@@ -208,6 +208,29 @@ public sealed class AgentOrchestrationServiceTests
             CancellationToken cancellationToken) =>
             throw new InvalidOperationException(
                 "POS data is not used by these tests.");
+
+        public Task<PluPageResult> GetPluPageAsync(
+            ConnectorSettings settings,
+            string cookie,
+            PluPageQuery query,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException(
+                "PLU page data is not used by these tests.");
+
+        public Task<PluLookupResult> GetPluAsync(
+            ConnectorSettings settings,
+            string cookie,
+            PluLookupQuery query,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException(
+                "PLU lookup data is not used by these tests.");
+
+        public Task<ReferentialIntegrityResult> GetReferentialIntegrityAsync(
+            ConnectorSettings settings,
+            string cookie,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException(
+                "Referential data is not used by these tests.");
     }
 
     private sealed class FakeBridgeClient : IBridgeSocketClient

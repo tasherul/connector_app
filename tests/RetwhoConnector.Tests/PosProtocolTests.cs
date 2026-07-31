@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Net;
 using System.Text;
+using RetwhoConnector.Core.Abstractions;
 using RetwhoConnector.Core.Configuration;
 using RetwhoConnector.Core.Exceptions;
 using RetwhoConnector.Core.Models;
@@ -299,6 +300,193 @@ public sealed class PosProtocolTests
         Assert.Equal("POS_INVALID_RESPONSE", exception.Code);
     }
 
+    [Fact]
+    public async Task PosData_GetPluPageSendsPageRequestAndMapsFixture()
+    {
+        var transport = new RecordingPosHttpClient(
+            CreateResponse(Fixture("plu-page-success.xml")));
+        var fetchedAt = new DateTimeOffset(
+            2026,
+            7,
+            31,
+            9,
+            15,
+            0,
+            TimeSpan.Zero);
+        var service = CreateDataService(transport, fetchedAt);
+
+        PluPageResult result = await service.GetPluPageAsync(
+            CreateSettings(),
+            "FAKE_COOKIE",
+            new PluPageQuery(2, 25),
+            CancellationToken.None);
+
+        Assert.Equal("vPLUs", transport.Command);
+        Assert.Equal("cmd=vPLUs&cookie=FAKE_COOKIE", transport.Query);
+        Assert.Contains("<pageSize>25</pageSize><page>2</page>", transport.Body);
+        Assert.Equal(2, result.Page);
+        Assert.Equal(2, result.ItemCount);
+        Assert.Equal("FAKE PRODUCT A", result.Products[0].Description);
+        Assert.Equal(fetchedAt, result.FetchedAtUtc);
+    }
+
+    [Fact]
+    public async Task PosData_GetPluSendsKeyboardLookupAndMapsFixture()
+    {
+        const string xml =
+            "<PLUs><PLU><upc>00000000000001</upc>" +
+            "<upcModifier>000</upcModifier>" +
+            "<description>FAKE PRODUCT LOOKUP</description>" +
+            "<department>10</department></PLU></PLUs>";
+        var transport = new RecordingPosHttpClient(CreateResponse(xml));
+        var fetchedAt = new DateTimeOffset(
+            2026,
+            7,
+            31,
+            9,
+            16,
+            0,
+            TimeSpan.Zero);
+        var service = CreateDataService(transport, fetchedAt);
+
+        PluLookupResult result = await service.GetPluAsync(
+            CreateSettings(),
+            "FAKE_COOKIE",
+            new PluLookupQuery("00000000000001", "000"),
+            CancellationToken.None);
+
+        Assert.Equal("vPLUs", transport.Command);
+        Assert.Equal("cmd=vPLUs&cookie=FAKE_COOKIE", transport.Query);
+        Assert.Contains("upc source=\"keyboard\"", transport.Body);
+        Assert.Contains("<upcModifier>000</upcModifier>", transport.Body);
+        Assert.True(result.Found);
+        Assert.Equal("FAKE PRODUCT LOOKUP", result.Product!.Description);
+        Assert.Equal(fetchedAt, result.FetchedAtUtc);
+    }
+
+    [Fact]
+    public async Task PosData_GetReferentialIntegritySendsFixedRequestAndMapsFixture()
+    {
+        var transport = new RecordingPosHttpClient(
+            CreateResponse(Fixture("referential-integrity-success.xml")));
+        var fetchedAt = new DateTimeOffset(
+            2026,
+            7,
+            31,
+            9,
+            17,
+            0,
+            TimeSpan.Zero);
+        var service = CreateDataService(transport, fetchedAt);
+
+        ReferentialIntegrityResult result =
+            await service.GetReferentialIntegrityAsync(
+                CreateSettings(),
+                "FAKE_COOKIE",
+                CancellationToken.None);
+
+        Assert.Equal("vrefinteg", transport.Command);
+        Assert.Equal(
+            "cmd=vrefinteg&dataset=prodCodes,departments,ageValidations,taxRates,blueLaws,fees&cookie=FAKE_COOKIE",
+            transport.Query);
+        Assert.Equal(transport.Query, transport.Body);
+        Assert.Equal("FAKE-SITE-17", result.SiteId);
+        Assert.Equal(2, result.Departments.Count);
+        Assert.Equal(fetchedAt, result.FetchedAtUtc);
+    }
+
+    [Theory]
+    [InlineData("page", 401)]
+    [InlineData("page", 403)]
+    [InlineData("lookup", 401)]
+    [InlineData("lookup", 403)]
+    [InlineData("referential", 401)]
+    [InlineData("referential", 403)]
+    public async Task PosData_NewOperationsMapAuthenticationHttpStatus(
+        string operation,
+        int statusCode)
+    {
+        var transport = new RecordingPosHttpClient(
+            CreateResponse("<error />", statusCode));
+        var service = CreateDataService(transport);
+
+        PosAuthenticationException exception =
+            await Assert.ThrowsAsync<PosAuthenticationException>(
+                () => InvokeNewOperationAsync(service, operation));
+
+        Assert.Equal("POS_AUTH_EXPIRED", exception.Code);
+        Assert.Equal(1, transport.CallCount);
+    }
+
+    [Theory]
+    [InlineData("page")]
+    [InlineData("lookup")]
+    [InlineData("referential")]
+    public async Task PosData_NewOperationsMapLoginRequiredFault(
+        string operation)
+    {
+        var transport = new RecordingPosHttpClient(
+            CreateResponse(Fixture("pos-login-required.xml")));
+        var service = CreateDataService(transport);
+
+        PosAuthenticationException exception =
+            await Assert.ThrowsAsync<PosAuthenticationException>(
+                () => InvokeNewOperationAsync(service, operation));
+
+        Assert.Equal("POS_AUTH_EXPIRED", exception.Code);
+    }
+
+    [Theory]
+    [InlineData("page")]
+    [InlineData("lookup")]
+    [InlineData("referential")]
+    public async Task PosData_NewOperationsRetainUnrelatedFault(
+        string operation)
+    {
+        const string xml =
+            """
+            <VFI:Response xmlns:VFI="urn:vfi-sapphire:np.domain.2001-07-01">
+              <VFI:Fault>
+                <faultCode>CGIPortal.InvalidCommand</faultCode>
+                <faultString>Command unavailable</faultString>
+              </VFI:Fault>
+            </VFI:Response>
+            """;
+        var transport = new RecordingPosHttpClient(CreateResponse(xml));
+        var service = CreateDataService(transport);
+
+        PosResponseException exception =
+            await Assert.ThrowsAsync<PosResponseException>(
+                () => InvokeNewOperationAsync(service, operation));
+
+        Assert.Equal("POS_INVALID_RESPONSE", exception.Code);
+    }
+
+    [Theory]
+    [InlineData("page", "cancelled")]
+    [InlineData("lookup", "cancelled")]
+    [InlineData("referential", "cancelled")]
+    [InlineData("page", "response-limit")]
+    [InlineData("lookup", "response-limit")]
+    [InlineData("referential", "response-limit")]
+    public async Task PosData_NewOperationsPropagateTransportFailures(
+        string operation,
+        string failure)
+    {
+        Exception expected = failure == "cancelled"
+            ? new OperationCanceledException(CancellationToken.None)
+            : new PosResponseException(
+                "POS_INVALID_RESPONSE",
+                "The POS response exceeded the configured size limit.");
+        var transport = new RecordingPosHttpClient(expected);
+        var service = CreateDataService(transport);
+
+        Exception actual = await Assert.ThrowsAnyAsync<Exception>(
+            () => InvokeNewOperationAsync(service, operation));
+
+        Assert.Same(expected, actual);
+    }
+
     private static ConnectorSettings CreateSettings() =>
         new()
         {
@@ -310,6 +498,58 @@ public sealed class PosProtocolTests
 
     private static string Fixture(string name) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
+
+    private static PosDataService CreateDataService(
+        IPosHttpClient transport,
+        DateTimeOffset? fetchedAt = null) =>
+        new(
+            transport,
+            new PosHttpRequestFactory(new PosOptions()),
+            new VdatetimeXmlMapper(),
+            new PluXmlMapper(),
+            new ReferentialIntegrityXmlMapper(),
+            new FixedTimeProvider(
+                fetchedAt ?? new DateTimeOffset(
+                    2026,
+                    7,
+                    31,
+                    9,
+                    0,
+                    0,
+                    TimeSpan.Zero)));
+
+    private static PosHttpResponse CreateResponse(
+        string body,
+        int statusCode = 200) =>
+        new()
+        {
+            Metadata = new PosResponseMetadata
+            {
+                StatusCode = statusCode,
+            },
+            Body = body,
+        };
+
+    private static async Task<object> InvokeNewOperationAsync(
+        PosDataService service,
+        string operation) => operation switch
+        {
+            "page" => await service.GetPluPageAsync(
+                CreateSettings(),
+                "FAKE_COOKIE",
+                new PluPageQuery(2, 25),
+                CancellationToken.None),
+            "lookup" => await service.GetPluAsync(
+                CreateSettings(),
+                "FAKE_COOKIE",
+                new PluLookupQuery("00000000000001", "000"),
+                CancellationToken.None),
+            "referential" => await service.GetReferentialIntegrityAsync(
+                CreateSettings(),
+                "FAKE_COOKIE",
+                CancellationToken.None),
+            _ => throw new ArgumentOutOfRangeException(nameof(operation)),
+        };
 
     private static void AssertRequestCompatibility(
         HttpRequestMessage request,
@@ -370,5 +610,51 @@ public sealed class PosProtocolTests
             CallCount++;
             return Task.FromResult(response);
         }
+    }
+
+    private sealed class RecordingPosHttpClient : IPosHttpClient
+    {
+        private readonly PosHttpResponse? _response;
+        private readonly Exception? _exception;
+
+        public RecordingPosHttpClient(PosHttpResponse response)
+        {
+            _response = response;
+        }
+
+        public RecordingPosHttpClient(Exception exception)
+        {
+            _exception = exception;
+        }
+
+        public int CallCount { get; private set; }
+        public string Command { get; private set; } = string.Empty;
+        public string Query { get; private set; } = string.Empty;
+        public string Body { get; private set; } = string.Empty;
+
+        public async Task<PosHttpResponse> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+            request.Options.TryGetValue(
+                PosHttpRequestFactory.CommandKey,
+                out string? command);
+            Command = command ?? string.Empty;
+            Query = request.RequestUri!.Query.TrimStart('?');
+            Body = await request.Content!.ReadAsStringAsync(cancellationToken);
+            if (_exception is not null)
+            {
+                throw _exception;
+            }
+
+            return _response!;
+        }
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow)
+        : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 }

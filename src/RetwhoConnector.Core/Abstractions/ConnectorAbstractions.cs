@@ -33,6 +33,23 @@ public interface IPosDataService
         ConnectorSettings settings,
         string cookie,
         CancellationToken cancellationToken);
+
+    Task<PluPageResult> GetPluPageAsync(
+        ConnectorSettings settings,
+        string cookie,
+        PluPageQuery query,
+        CancellationToken cancellationToken);
+
+    Task<PluLookupResult> GetPluAsync(
+        ConnectorSettings settings,
+        string cookie,
+        PluLookupQuery query,
+        CancellationToken cancellationToken);
+
+    Task<ReferentialIntegrityResult> GetReferentialIntegrityAsync(
+        ConnectorSettings settings,
+        string cookie,
+        CancellationToken cancellationToken);
 }
 
 public interface IPosHttpClient
