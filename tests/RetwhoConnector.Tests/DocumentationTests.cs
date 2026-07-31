@@ -2,11 +2,38 @@ namespace RetwhoConnector.Tests;
 
 public sealed class DocumentationTests
 {
+    private const string ConnectorToPosLabel =
+        "Connector request reference — **connector-to-POS only—not browser-callable**:";
+
     private static string ReadWebAppGuide() =>
         File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory,
             "Fixtures",
             "WEB_APP_SOCKET_INTEGRATION_GUIDE.md"));
+
+    private static string ReadGuideSection(
+        string guide,
+        string heading,
+        string nextHeading)
+    {
+        int start = guide.IndexOf(heading, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Guide heading '{heading}' was not found.");
+
+        int end = guide.IndexOf(
+            nextHeading,
+            start + heading.Length,
+            StringComparison.Ordinal);
+        Assert.True(end >= 0, $"Guide heading '{nextHeading}' was not found.");
+
+        return guide[start..end];
+    }
+
+    private static bool HasConnectorToPosReference(
+        string section,
+        string request) =>
+        section.Contains(
+            $"{ConnectorToPosLabel}\n\n```text\n{request}\n```",
+            StringComparison.Ordinal);
 
     [Fact]
     public void WebAppGuide_DocumentsFixedSocketBoundaryAndAcknowledgements()
@@ -116,15 +143,11 @@ public sealed class DocumentationTests
                  {
                      "POST https://POS_HOST/cgi-bin/NAXML?cmd=vdatetime&cookie=FAKE_COOKIE",
                      "POST https://POS_HOST/cgi-bin/NAXML?cmd=vPLUs&cookie=FAKE_COOKIE",
-                     "POST https://POS_HOST/cgi-bin/NAXML?cmd=vPLUs&cookie=FAKE_COOKIE",
                      "POST https://POS_HOST/cgi-bin/NAXML?cmd=vrefinteg&dataset=prodCodes,departments,ageValidations,taxRates,blueLaws,fees&cookie=FAKE_COOKIE",
                      "POST https://POS_HOST/cgi-bin/NAXML?cmd=validate&user=FAKE_USER&passwd=REDACTED",
                  })
         {
-            Assert.Contains(
-                $"Connector request reference — **connector-to-POS only—not browser-callable**:\n\n```text\n{request}\n```",
-                guide,
-                StringComparison.Ordinal);
+            Assert.True(HasConnectorToPosReference(guide, request));
         }
 
         foreach (string limit in new[]
@@ -139,6 +162,64 @@ public sealed class DocumentationTests
         {
             Assert.Contains(limit, guide, StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public void WebAppGuide_ScopesPluRequestReferencesToTheirActionSections()
+    {
+        const string pluRequest =
+            "POST https://POS_HOST/cgi-bin/NAXML?cmd=vPLUs&cookie=FAKE_COOKIE";
+        string guide = ReadWebAppGuide();
+        string pageSection = ReadGuideSection(
+            guide,
+            "### `get_plu_page`",
+            "### `get_plu`");
+        string lookupSection = ReadGuideSection(
+            guide,
+            "### `get_plu`",
+            "### `get_referential_integrity`");
+
+        Assert.True(HasConnectorToPosReference(pageSection, pluRequest));
+        Assert.Contains(
+            "`PLUSelect` body for the page",
+            pageSection,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "<pageSize>25</pageSize><page>2</page>",
+            pageSection,
+            StringComparison.Ordinal);
+
+        Assert.True(HasConnectorToPosReference(lookupSection, pluRequest));
+        Assert.Contains(
+            "exact-lookup `PLUSelect` body",
+            lookupSection,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "<upc source=\"keyboard\">00000000000002</upc>",
+            lookupSection,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "<pageSize>100</pageSize><page>1</page>",
+            lookupSection,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WebAppGuide_PluSectionContractDetectsMissingLocalLabel()
+    {
+        const string pluRequest =
+            "POST https://POS_HOST/cgi-bin/NAXML?cmd=vPLUs&cookie=FAKE_COOKIE";
+        string guide = ReadWebAppGuide();
+        string pageSection = ReadGuideSection(
+            guide,
+            "### `get_plu_page`",
+            "### `get_plu`");
+        string missingLabel = pageSection.Replace(
+            ConnectorToPosLabel,
+            "Connector request reference — **not browser-callable**:",
+            StringComparison.Ordinal);
+
+        Assert.False(HasConnectorToPosReference(missingLabel, pluRequest));
     }
 
     [Fact]
