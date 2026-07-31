@@ -1,9 +1,11 @@
 using System.Net;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
+using System.Text.Json;
 using RetwhoConnector.Core.Abstractions;
 using RetwhoConnector.Core.Configuration;
 using RetwhoConnector.Core.Models;
+using RetwhoConnector.Core.Security;
 using RetwhoConnector.Core.Services;
 
 namespace RetwhoConnector.Tests;
@@ -24,7 +26,8 @@ public sealed class PosHttpClientTests
             httpClient,
             new PosResponseReader(),
             new PosOptions(),
-            log);
+            log,
+            new LogSanitizer());
         using HttpRequestMessage request =
             new PosHttpRequestFactory(new PosOptions())
                 .CreateLogin(CreateSettings());
@@ -39,7 +42,88 @@ public sealed class PosHttpClientTests
         Assert.Contains("HTTP 200", entry.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("https://", entry.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("FAKE_", entry.Message, StringComparison.Ordinal);
-        Assert.Null(entry.Details);
+        Assert.NotNull(entry.Details);
+        using JsonDocument diagnostic =
+            JsonDocument.Parse(entry.Details);
+        JsonElement requestDiagnostic =
+            diagnostic.RootElement.GetProperty("request");
+        Assert.Equal(
+            "validate",
+            requestDiagnostic.GetProperty("command").GetString());
+        Assert.Equal(
+            "POST",
+            requestDiagnostic.GetProperty("method").GetString());
+        Assert.Equal(
+            "1.1",
+            requestDiagnostic.GetProperty("version").GetString());
+        Assert.True(
+            requestDiagnostic.GetProperty("contentLength").GetInt64() > 0);
+        Assert.False(
+            requestDiagnostic.GetProperty("hasCertificatePin").GetBoolean());
+        JsonElement responseDiagnostic =
+            diagnostic.RootElement.GetProperty("response");
+        Assert.Equal(
+            200,
+            responseDiagnostic.GetProperty("statusCode").GetInt32());
+        Assert.Equal(
+            "credential",
+            responseDiagnostic.GetProperty("rootName").GetString());
+        Assert.True(
+            responseDiagnostic
+                .GetProperty("responseCharacters")
+                .GetInt32() > 0);
+        AssertSafeDiagnostic(entry.Details);
+    }
+
+    [Fact]
+    public async Task SendAsync_FaultLogsOnlyAllowlistedXmlFields()
+    {
+        string xml = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "pos-login-required.xml"));
+        var log = new RecordingAgentLog();
+        using var httpClient = new HttpClient(
+            new StaticHandler(
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(xml),
+                }));
+        IPosHttpClient transport = new PosHttpClient(
+            httpClient,
+            new PosResponseReader(),
+            new PosOptions(),
+            log,
+            new LogSanitizer());
+        using HttpRequestMessage request =
+            new PosHttpRequestFactory(new PosOptions())
+                .CreateVdatetime(
+                    CreateSettings(),
+                    "FAKE_COOKIE");
+
+        await transport.SendAsync(
+            request,
+            CancellationToken.None);
+
+        RecordedLog entry = Assert.Single(log.Entries);
+        Assert.NotNull(entry.Details);
+        Assert.Contains(
+            "CGIPortal.LoginRequired",
+            entry.Details,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "CGIPortal Error",
+            entry.Details,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "No Credential for the User.",
+            entry.Details,
+            StringComparison.Ordinal);
+        AssertSafeDiagnostic(entry.Details);
+        Assert.DoesNotContain(
+            "<VFI:Response",
+            entry.Details,
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -51,7 +135,8 @@ public sealed class PosHttpClientTests
             httpClient,
             new PosResponseReader(),
             new PosOptions(),
-            log);
+            log,
+            new LogSanitizer());
         using HttpRequestMessage request =
             new PosHttpRequestFactory(new PosOptions())
                 .CreateLogin(CreateSettings());
@@ -65,7 +150,12 @@ public sealed class PosHttpClientTests
         Assert.DoesNotContain("FAKE_", entry.Message, StringComparison.Ordinal);
         Assert.Equal(
             typeof(HttpRequestException).FullName,
-            entry.Details);
+            JsonDocument
+                .Parse(entry.Details!)
+                .RootElement
+                .GetProperty("exceptionType")
+                .GetString());
+        AssertSafeDiagnostic(entry.Details!);
     }
 
     [Fact]
@@ -88,6 +178,30 @@ public sealed class PosHttpClientTests
             PosPassword = "FAKE_PASSWORD",
             LicenseKey = "FAKE-LICENSE-001",
         };
+
+    private static void AssertSafeDiagnostic(string details)
+    {
+        Assert.DoesNotContain(
+            "FAKE_PASSWORD",
+            details,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "FAKE_COOKIE",
+            details,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "FAKE_USER",
+            details,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "https://",
+            details,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            " at System.",
+            details,
+            StringComparison.Ordinal);
+    }
 
     private sealed class StaticHandler(HttpResponseMessage response)
         : HttpMessageHandler

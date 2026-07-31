@@ -3,6 +3,7 @@ using RetwhoConnector.Core.Abstractions;
 using RetwhoConnector.Core.Configuration;
 using RetwhoConnector.Core.Exceptions;
 using RetwhoConnector.Core.Models;
+using RetwhoConnector.Core.Security;
 
 namespace RetwhoConnector.Core.Services;
 
@@ -41,7 +42,8 @@ public sealed class PosDataService : IPosDataService
                 httpClient,
                 responseReader,
                 options,
-                NullAgentLog.Instance),
+                NullAgentLog.Instance,
+                new LogSanitizer()),
             requestFactory,
             mapper,
             timeProvider)
