@@ -139,10 +139,10 @@
             <StackPanel Grid.Row="0">
                 <TextBlock Text="Hybrid Edge Connector Agent"
                            FontSize="28"
-                           Foreground="{Black}"
+                           Foreground="Black"
                            FontWeight="SemiBold" />
                 <TextBlock Text="Secure local POS to Retwho cloud bridge"
-                           Foreground="{Black}"
+                           Foreground="Black"
                            FontSize="15"
                            Margin="0,4,0,0" />
             </StackPanel>
