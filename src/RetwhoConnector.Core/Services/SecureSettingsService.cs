@@ -107,13 +107,22 @@ public sealed class SecureSettingsService : ISecureSettingsService
                     existing.PosPassword,
                     validated.PosPassword,
                     StringComparison.Ordinal);
+            bool cookieIsCached = string.Equals(
+                validated.PosCookie,
+                existing.PosCookie,
+                StringComparison.Ordinal);
+            bool pinIsCached = string.Equals(
+                validated.PinnedCertificateSha256,
+                existing.PinnedCertificateSha256,
+                StringComparison.Ordinal);
 
             validated = validated with
             {
-                PosCookie = hostChanged || credentialsChanged
+                PosCookie =
+                    (hostChanged || credentialsChanged) && cookieIsCached
                     ? null
                     : validated.PosCookie,
-                PinnedCertificateSha256 = hostChanged
+                PinnedCertificateSha256 = hostChanged && pinIsCached
                     ? null
                     : validated.PinnedCertificateSha256,
             };

@@ -8,6 +8,7 @@ using RetwhoConnector.App.Services;
 using RetwhoConnector.App.ViewModels;
 using RetwhoConnector.Core.Abstractions;
 using RetwhoConnector.Core.Configuration;
+using RetwhoConnector.Core.Models;
 using RetwhoConnector.Core.Security;
 using RetwhoConnector.Core.Services;
 using Serilog;
@@ -47,12 +48,25 @@ public partial class App : System.Windows.Application
             localData,
             "RetwhoConnector",
             "Logs",
-            "connector-.log");
+            "startup-.log");
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Information()
+            .WriteTo.File(
+                logPath,
+                rollingInterval: RollingInterval.Day,
+                rollOnFileSizeLimit: true,
+                fileSizeLimitBytes: 10 * 1024 * 1024,
+                retainedFileCountLimit: 14,
+                shared: false,
+                outputTemplate:
+                    "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] " +
+                    "{Message:lj}{NewLine}")
+            .CreateLogger();
 
         string startupStage = "building application services";
         try
         {
-            IHost host = BuildHost(logPath);
+            IHost host = BuildHost();
             _host = host;
 
             startupStage = "starting application services";
@@ -82,6 +96,11 @@ public partial class App : System.Windows.Application
                 exception.TargetSite?.DeclaringType?.FullName is string typeName
                     ? $"{typeName}.{exception.TargetSite.Name}"
                     : "unknown";
+            _host?.Services.GetService<IAgentLog>()?.TryWrite(
+                AgentLogLevel.Critical,
+                AgentLogCategory.Error,
+                "Application startup failed.",
+                $"{exception.GetType().Name} at {exceptionTarget} ({errorCode})");
             Log.Fatal(
                 "Application startup failed at {StartupStage} " +
                 "({ExceptionType}, {ExceptionTarget}, {ErrorCode})",
@@ -100,21 +119,9 @@ public partial class App : System.Windows.Application
         }
     }
 
-    private IHost BuildHost(string logPath) =>
+    private IHost BuildHost() =>
         Host.CreateDefaultBuilder()
-            .UseSerilog((_, _, configuration) =>
-                configuration
-                    .MinimumLevel.Information()
-                    .WriteTo.File(
-                        logPath,
-                        rollingInterval: RollingInterval.Day,
-                        rollOnFileSizeLimit: true,
-                        fileSizeLimitBytes: 10 * 1024 * 1024,
-                        retainedFileCountLimit: 10,
-                        shared: false,
-                        outputTemplate:
-                            "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] " +
-                            "{Message:lj}{NewLine}{Exception}"))
+            .ConfigureLogging(logging => logging.ClearProviders())
             .ConfigureServices(services =>
             {
                 services.AddSingleton(new BridgeOptions());
@@ -123,15 +130,18 @@ public partial class App : System.Windows.Application
                 services.AddSingleton(new LogStorageOptions());
                 services.AddSingleton(TimeProvider.System);
                 services.AddSingleton<ILogSanitizer, LogSanitizer>();
-                services.AddSingleton<RollingFileLogSink>();
-                services.AddSingleton<SqliteLogSink>();
                 services.AddSingleton<IAgentLogSink>(provider =>
-                    provider.GetRequiredService<RollingFileLogSink>());
+                    new RollingFileLogSink(
+                        provider.GetRequiredService<LogStorageOptions>(),
+                        provider.GetRequiredService<TimeProvider>()));
                 services.AddSingleton<IAgentLogSink>(provider =>
-                    provider.GetRequiredService<SqliteLogSink>());
+                    new SqliteLogSink(
+                        provider.GetRequiredService<LogStorageOptions>(),
+                        provider.GetRequiredService<TimeProvider>()));
                 services.AddSingleton<AgentLogPipeline>();
                 services.AddSingleton<IAgentLog>(provider =>
                     provider.GetRequiredService<AgentLogPipeline>());
+                services.AddSingleton<ILoggerProvider, ChannelLoggerProvider>();
                 services.AddSingleton<IHostedService>(provider =>
                     provider.GetRequiredService<AgentLogPipeline>());
                 services.AddSingleton<ISecureSettingsService, SecureSettingsService>();
@@ -165,6 +175,11 @@ public partial class App : System.Windows.Application
                         provider.GetRequiredService<TimeProvider>(),
                         provider.GetRequiredService<ILogger<ConnectorCoordinator>>(),
                         _applicationSource.Token));
+                services.AddSingleton<AgentOrchestrationService>();
+                services.AddSingleton<IAgentOrchestrationService>(provider =>
+                    provider.GetRequiredService<AgentOrchestrationService>());
+                services.AddSingleton<IHostedService>(provider =>
+                    provider.GetRequiredService<AgentOrchestrationService>());
                 services.AddSingleton<IUserDialogService, UserDialogService>();
                 services.AddSingleton<MainWindowViewModel>();
                 services.AddSingleton<MainWindow>();
@@ -182,7 +197,14 @@ public partial class App : System.Windows.Application
             }
             finally
             {
-                _host.Dispose();
+                if (_host is IAsyncDisposable asyncDisposable)
+                {
+                    await asyncDisposable.DisposeAsync();
+                }
+                else
+                {
+                    _host.Dispose();
+                }
             }
         }
 

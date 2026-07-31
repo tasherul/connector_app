@@ -105,6 +105,28 @@ public interface IAgentLogSink
     ValueTask FlushAsync(CancellationToken cancellationToken);
 }
 
+public interface IAgentOrchestrationService
+{
+    ConnectorStatus CurrentStatus { get; }
+    ConnectorSettings? CurrentSettings { get; }
+
+    event EventHandler<ConnectorStatus>? StatusChanged;
+    event EventHandler<VdatetimeResult>? ResultReceived;
+
+    Task InitializeAsync(CancellationToken cancellationToken);
+    Task<ConnectorSettings?> LoadSettingsAsync(
+        CancellationToken cancellationToken);
+    Task SaveTestAndConnectAsync(
+        ConnectorSettings settings,
+        CancellationToken cancellationToken);
+    Task ConnectSavedAsync(CancellationToken cancellationToken);
+    Task DisconnectAsync(CancellationToken cancellationToken);
+    Task<PresentedCertificate> InspectCertificateAsync(
+        string posBaseUrl,
+        CancellationToken cancellationToken);
+    Task ClearSettingsAsync(CancellationToken cancellationToken);
+}
+
 public interface IPosResponseReader
 {
     Task<PosHttpResponse> ReadAsync(

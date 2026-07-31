@@ -17,6 +17,7 @@ public sealed class RollingFileLogSink :
     private string? _currentDate;
     private int _segment;
     private DateOnly _lastCleanupDate;
+    private int _disposed;
 
     public RollingFileLogSink(
         LogStorageOptions options,
@@ -221,6 +222,11 @@ public sealed class RollingFileLogSink :
 
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
         await _gate.WaitAsync().ConfigureAwait(false);
         try
         {

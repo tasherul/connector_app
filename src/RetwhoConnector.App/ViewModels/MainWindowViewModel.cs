@@ -15,6 +15,7 @@ namespace RetwhoConnector.App.ViewModels;
 public sealed class MainWindowViewModel : ObservableObject
 {
     private readonly ConnectorCoordinator _coordinator;
+    private readonly IAgentOrchestrationService _orchestration;
     private readonly ISecureSettingsService _settingsService;
     private readonly ICertificateTrustService _certificateTrust;
     private readonly IUserDialogService _dialogs;
@@ -35,11 +36,13 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel(
         ConnectorCoordinator coordinator,
+        IAgentOrchestrationService orchestration,
         ISecureSettingsService settingsService,
         ICertificateTrustService certificateTrust,
         IUserDialogService dialogs)
     {
         _coordinator = coordinator;
+        _orchestration = orchestration;
         _settingsService = settingsService;
         _certificateTrust = certificateTrust;
         _dialogs = dialogs;
@@ -169,7 +172,7 @@ public sealed class MainWindowViewModel : ObservableObject
                 _pinnedCertificate = settings.PinnedCertificateSha256;
             }
 
-            await _coordinator.InitializeAsync(cancellationToken);
+            await _orchestration.InitializeAsync(cancellationToken);
         }
         catch (ConnectorException exception)
         {

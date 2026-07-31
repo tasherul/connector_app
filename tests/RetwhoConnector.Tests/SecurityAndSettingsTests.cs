@@ -101,6 +101,30 @@ public sealed class SecurityAndSettingsTests
     }
 
     [Fact]
+    public async Task Settings_ChangingCredentials_PreservesFreshCookie()
+    {
+        var store = new MemorySettingsFileStore();
+        var service = new SecureSettingsService(
+            store,
+            new TestSecretProtector(),
+            "/safe/settings.json");
+        await service.SaveAsync(CreateSettings(), CancellationToken.None);
+
+        await service.SaveAsync(
+            CreateSettings() with
+            {
+                PosPassword = "FAKE_CHANGED_PASSWORD",
+                PosCookie = "FAKE_FRESH_COOKIE",
+            },
+            CancellationToken.None);
+        ConnectorSettings loaded =
+            Assert.IsType<ConnectorSettings>(
+                await service.LoadAsync(CancellationToken.None));
+
+        Assert.Equal("FAKE_FRESH_COOKIE", loaded.PosCookie);
+    }
+
+    [Fact]
     public void CertificatePin_RequiresExactOriginAndFingerprint()
     {
         using X509Certificate2 certificate = CreateCertificate();
