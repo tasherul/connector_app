@@ -328,6 +328,32 @@ public sealed class WpfThemeContractTests
     }
 
     [Fact]
+    public void MultiDataTriggers_UseBindingsForEveryCondition()
+    {
+        XDocument controls = LoadFixture("Controls.xaml");
+        XElement[] triggers = controls
+            .Descendants(Presentation + "MultiDataTrigger")
+            .ToArray();
+
+        Assert.NotEmpty(triggers);
+        Assert.All(triggers, trigger =>
+        {
+            XElement[] conditions = trigger
+                .Descendants(Presentation + "Condition")
+                .ToArray();
+
+            Assert.NotEmpty(conditions);
+            Assert.All(conditions, condition =>
+            {
+                Assert.False(
+                    string.IsNullOrWhiteSpace(condition.Attribute("Binding")?.Value),
+                    "Every MultiDataTrigger condition must provide a Binding.");
+                Assert.Null(condition.Attribute("Property"));
+            });
+        });
+    }
+
+    [Fact]
     public void DangerButton_UsesDangerOutlinePaletteForHoverAndPressedStates()
     {
         XDocument controls = LoadFixture("Controls.xaml");
@@ -476,7 +502,9 @@ public sealed class WpfThemeContractTests
                         StringComparison.Ordinal) == true &&
                     condition.Attribute("Value")?.Value == "Disconnect") &&
                 element.Descendants(Presentation + "Condition").Any(condition =>
-                    condition.Attribute("Property")?.Value == state &&
+                    condition.Attribute("Binding")?.Value.Contains(
+                        state,
+                        StringComparison.Ordinal) == true &&
                     condition.Attribute("Value")?.Value == "True"));
         Assert.Contains(trigger.Elements(Presentation + "Setter"), setter =>
             setter.Attribute("Property")?.Value == "Background" &&
