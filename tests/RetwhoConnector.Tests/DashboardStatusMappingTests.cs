@@ -138,6 +138,9 @@ public sealed class DashboardStatusMappingTests
         Assert.Equal("Reconnecting", result.Server.Status);
         Assert.Equal("Reconnecting to Retwho", result.Server.Description);
         Assert.Equal(DashboardSignal.Warning, result.Server.Signal);
+        Assert.Equal("Reconnecting", result.Agent.Status);
+        Assert.Equal("Reconnecting to Retwho", result.Agent.Description);
+        Assert.Equal(DashboardSignal.Warning, result.Agent.Signal);
     }
 
     [Fact]
@@ -166,6 +169,67 @@ public sealed class DashboardStatusMappingTests
         Assert.Equal("Error", result.Agent.Status);
         Assert.Equal("POS authentication failed", result.Agent.Description);
         Assert.Equal(DashboardSignal.Error, result.Agent.Signal);
+    }
+
+    [Fact]
+    public void Map_PrioritizesSessionReplacementOverSessionRefresh()
+    {
+        DashboardStatusSnapshot result = Map(status => status with
+        {
+            BridgeTransport = BridgeTransportState.SessionReplaced,
+            AgentRegistration = AgentRegistrationState.SessionReplaced,
+            PosAuthentication = PosAuthenticationState.RefreshingSession,
+        });
+
+        Assert.Equal("Inactive", result.Agent.Status);
+        Assert.Equal("Session replaced by another agent", result.Agent.Description);
+        Assert.Equal(DashboardSignal.Error, result.Agent.Signal);
+    }
+
+    [Fact]
+    public void Map_PrioritizesPermanentRegistrationFailureOverSessionRefresh()
+    {
+        DashboardStatusSnapshot result = Map(status => status with
+        {
+            BridgeTransport = BridgeTransportState.Connected,
+            AgentRegistration = AgentRegistrationState.Failed,
+            PosAuthentication = PosAuthenticationState.RefreshingSession,
+        });
+
+        Assert.Equal("Error", result.Agent.Status);
+        Assert.Equal("Agent registration failed", result.Agent.Description);
+        Assert.Equal(DashboardSignal.Error, result.Agent.Signal);
+    }
+
+    [Fact]
+    public void Map_PrioritizesPermanentBridgeAuthenticationFailureOverSessionRefresh()
+    {
+        DashboardStatusSnapshot result = Map(status => status with
+        {
+            BridgeTransport = BridgeTransportState.AuthenticationFailed,
+            AgentRegistration = AgentRegistrationState.NotRegistered,
+            PosAuthentication = PosAuthenticationState.RefreshingSession,
+        });
+
+        Assert.Equal("Error", result.Agent.Status);
+        Assert.Equal("Retwho authentication failed", result.Agent.Description);
+        Assert.Equal(DashboardSignal.Error, result.Agent.Signal);
+    }
+
+    [Fact]
+    public void Map_KeepsTransientReconnectFailureAndSessionRefreshYellow()
+    {
+        DashboardStatusSnapshot result = Map(status => status with
+        {
+            BridgeTransport = BridgeTransportState.Reconnecting,
+            AgentRegistration = AgentRegistrationState.Failed,
+            PosAuthentication = PosAuthenticationState.RefreshingSession,
+        });
+
+        Assert.Equal("Reconnecting", result.Server.Status);
+        Assert.Equal(DashboardSignal.Warning, result.Server.Signal);
+        Assert.Equal("Refreshing", result.Agent.Status);
+        Assert.Equal(DashboardSignal.Warning, result.Agent.Signal);
     }
 
     [Theory]

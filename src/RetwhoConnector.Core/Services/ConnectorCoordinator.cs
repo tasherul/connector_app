@@ -399,16 +399,32 @@ public sealed class ConnectorCoordinator : IAsyncDisposable
             PosAuthentication = PosAuthenticationState.RefreshingSession,
             Message = "Refreshing the POS session…",
         });
-        PosSession session = await _authentication.LoginAsync(
-            settings,
-            cancellationToken).ConfigureAwait(false);
-        ConnectorSettings updated = settings with { PosCookie = session.Cookie };
-        await _settingsService.SaveAsync(updated, cancellationToken)
-            .ConfigureAwait(false);
-        return await operation(
-            updated,
-            session.Cookie,
-            cancellationToken).ConfigureAwait(false);
+        try
+        {
+            PosSession session = await _authentication.LoginAsync(
+                settings,
+                cancellationToken).ConfigureAwait(false);
+            ConnectorSettings updated = settings with { PosCookie = session.Cookie };
+            await _settingsService.SaveAsync(updated, cancellationToken)
+                .ConfigureAwait(false);
+            T result = await operation(
+                updated,
+                session.Cookie,
+                cancellationToken).ConfigureAwait(false);
+            UpdateStatus(CurrentStatus with
+            {
+                PosAuthentication = PosAuthenticationState.Authenticated,
+            });
+            return result;
+        }
+        catch
+        {
+            UpdateStatus(CurrentStatus with
+            {
+                PosAuthentication = PosAuthenticationState.AuthenticationFailed,
+            });
+            throw;
+        }
     }
 
     private BridgeAcknowledgement MapFailure(Exception exception) =>

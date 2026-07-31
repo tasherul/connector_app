@@ -345,6 +345,123 @@ public sealed class ExecutionAndBridgeTests
         Assert.Equal(LastCommandState.Failed, coordinator.CurrentStatus.LastCommand);
     }
 
+    [Fact]
+    public async Task Coordinator_CancelledRefreshLoginLeavesNonRefreshingStatus()
+    {
+        var settings = CreateSettings() with { PosCookie = "FAKE_EXPIRED_COOKIE" };
+        var settingsService = new FakeSettingsService(settings);
+        var authentication = new FakeAuthenticationService
+        {
+            Exception = new OperationCanceledException("Synthetic refresh timeout."),
+        };
+        var data = new FakeDataService { FailFirstWithAuthError = true };
+        var coordinator = CreateCoordinator(settingsService, authentication, data);
+        BridgeAcknowledgement? sent = null;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            });
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.False(sent!.Ok);
+        Assert.StartsWith("POS_TIMEOUT:", sent.Error, StringComparison.Ordinal);
+        Assert.Equal(1, authentication.Calls);
+        Assert.Equal(1, data.OperationCalls);
+        Assert.NotEqual(
+            PosAuthenticationState.RefreshingSession,
+            coordinator.CurrentStatus.PosAuthentication);
+        Assert.Equal(LastCommandState.Cancelled, coordinator.CurrentStatus.LastCommand);
+    }
+
+    [Fact]
+    public async Task Coordinator_CertificateRefreshFailurePreservesReplacedSessionStatus()
+    {
+        var settings = CreateSettings() with { PosCookie = "FAKE_EXPIRED_COOKIE" };
+        var settingsService = new FakeSettingsService(settings);
+        var bridge = new FakeBridgeClient { Registered = true };
+        var authentication = new FakeAuthenticationService
+        {
+            OnLogin = bridge.RaiseSessionReplaced,
+            Exception = new PosCertificateException(
+                "POS_CERTIFICATE_UNTRUSTED",
+                "The POS certificate is not trusted."),
+        };
+        var data = new FakeDataService { FailFirstWithAuthError = true };
+        var coordinator = new ConnectorCoordinator(
+            settingsService,
+            authentication,
+            data,
+            bridge,
+            new ActionExecutionRegistry(TimeProvider.System, CancellationToken.None),
+            new BridgeOptions(),
+            TimeProvider.System,
+            NullLogger<ConnectorCoordinator>.Instance,
+            CancellationToken.None);
+        BridgeAcknowledgement? sent = null;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            });
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.False(sent!.Ok);
+        Assert.StartsWith(
+            "POS_CERTIFICATE_UNTRUSTED:",
+            sent.Error,
+            StringComparison.Ordinal);
+        Assert.Equal(1, authentication.Calls);
+        Assert.Equal(1, data.OperationCalls);
+        Assert.NotEqual(
+            PosAuthenticationState.RefreshingSession,
+            coordinator.CurrentStatus.PosAuthentication);
+        Assert.Equal(
+            BridgeTransportState.SessionReplaced,
+            coordinator.CurrentStatus.BridgeTransport);
+        Assert.Equal(
+            AgentRegistrationState.SessionReplaced,
+            coordinator.CurrentStatus.AgentRegistration);
+    }
+
+    [Fact]
+    public async Task Coordinator_RefreshSettingsSaveFailureLeavesNonRefreshingStatus()
+    {
+        var settings = CreateSettings() with { PosCookie = "FAKE_EXPIRED_COOKIE" };
+        var settingsService = new FakeSettingsService(settings)
+        {
+            SaveException = new SettingsException(
+                "SETTINGS_WRITE_FAILED",
+                "The replacement POS session could not be saved."),
+        };
+        var authentication = new FakeAuthenticationService();
+        var data = new FakeDataService { FailFirstWithAuthError = true };
+        var coordinator = CreateCoordinator(settingsService, authentication, data);
+        BridgeAcknowledgement? sent = null;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            });
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.False(sent!.Ok);
+        Assert.StartsWith("SETTINGS_WRITE_FAILED:", sent.Error, StringComparison.Ordinal);
+        Assert.Equal(1, authentication.Calls);
+        Assert.Equal(1, data.OperationCalls);
+        Assert.Equal("FAKE_EXPIRED_COOKIE", settingsService.Settings!.PosCookie);
+        Assert.NotEqual(
+            PosAuthenticationState.RefreshingSession,
+            coordinator.CurrentStatus.PosAuthentication);
+        Assert.Equal(LastCommandState.Failed, coordinator.CurrentStatus.LastCommand);
+    }
+
     [Theory]
     [InlineData("get_current_data", "{}")]
     [InlineData("get_plu_page", "{}")]
@@ -859,6 +976,7 @@ public sealed class ExecutionAndBridgeTests
     {
         public ConnectorSettings? Settings { get; private set; } = settings;
         public int LoadCalls { get; private set; }
+        public Exception? SaveException { get; init; }
 
         public Task<ConnectorSettings?> LoadAsync(CancellationToken cancellationToken)
         {
@@ -870,6 +988,11 @@ public sealed class ExecutionAndBridgeTests
             ConnectorSettings value,
             CancellationToken cancellationToken)
         {
+            if (SaveException is not null)
+            {
+                return Task.FromException(SaveException);
+            }
+
             Settings = value;
             return Task.CompletedTask;
         }
@@ -885,12 +1008,14 @@ public sealed class ExecutionAndBridgeTests
     {
         public int Calls { get; private set; }
         public Exception? Exception { get; init; }
+        public Action? OnLogin { get; init; }
 
         public Task<PosSession> LoginAsync(
             ConnectorSettings settings,
             CancellationToken cancellationToken)
         {
             Calls++;
+            OnLogin?.Invoke();
             if (Exception is not null)
             {
                 return Task.FromException<PosSession>(Exception);
@@ -1070,6 +1195,8 @@ public sealed class ExecutionAndBridgeTests
             _ = ActionReceived;
             _ = SessionReplaced;
         }
+
+        public void RaiseSessionReplaced() => SessionReplaced?.Invoke(this, EventArgs.Empty);
     }
 
     private sealed class FakeSocketAdapterFactory(ISocketIoClientAdapter adapter)

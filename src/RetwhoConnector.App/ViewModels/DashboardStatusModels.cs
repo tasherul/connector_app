@@ -34,7 +34,10 @@ public static class DashboardStatusMapper
         return new DashboardStatusSnapshot(
             MapConfiguration(status.PosConfiguration),
             MapServer(status.BridgeTransport, status.AgentRegistration),
-            MapAgent(status.AgentRegistration, status.PosAuthentication),
+            MapAgent(
+                status.BridgeTransport,
+                status.AgentRegistration,
+                status.PosAuthentication),
             MapLogs(loggingHealth));
     }
 
@@ -165,9 +168,42 @@ public static class DashboardStatusMapper
     }
 
     private static DashboardStatusItem MapAgent(
+        BridgeTransportState transport,
         AgentRegistrationState registration,
         PosAuthenticationState authentication)
     {
+        if (transport == BridgeTransportState.SessionReplaced ||
+            registration == AgentRegistrationState.SessionReplaced)
+        {
+            return new DashboardStatusItem(
+                "Agent",
+                "Inactive",
+                "Session replaced by another agent",
+                DashboardSignal.Error,
+                "AgentIconGeometry");
+        }
+
+        if (transport == BridgeTransportState.AuthenticationFailed)
+        {
+            return new DashboardStatusItem(
+                "Agent",
+                "Error",
+                "Retwho authentication failed",
+                DashboardSignal.Error,
+                "AgentIconGeometry");
+        }
+
+        if (registration == AgentRegistrationState.Failed &&
+            transport != BridgeTransportState.Reconnecting)
+        {
+            return new DashboardStatusItem(
+                "Agent",
+                "Error",
+                "Agent registration failed",
+                DashboardSignal.Error,
+                "AgentIconGeometry");
+        }
+
         if (authentication == PosAuthenticationState.RefreshingSession)
         {
             return new DashboardStatusItem(
@@ -212,19 +248,9 @@ public static class DashboardStatusMapper
         {
             return new DashboardStatusItem(
                 "Agent",
-                "Error",
-                "Agent registration failed",
-                DashboardSignal.Error,
-                "AgentIconGeometry");
-        }
-
-        if (registration == AgentRegistrationState.SessionReplaced)
-        {
-            return new DashboardStatusItem(
-                "Agent",
-                "Inactive",
-                "Session replaced by another agent",
-                DashboardSignal.Error,
+                "Reconnecting",
+                "Reconnecting to Retwho",
+                DashboardSignal.Warning,
                 "AgentIconGeometry");
         }
 
