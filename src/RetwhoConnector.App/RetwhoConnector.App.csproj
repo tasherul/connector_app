@@ -13,8 +13,25 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions"
+                      GeneratePathProperty="true" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Serilog.Extensions.Hosting" />
     <PackageReference Include="Serilog.Sinks.File" />
   </ItemGroup>
+
+  <Target Name="EnsureFileConfigurationRuntimeDependency"
+          AfterTargets="Build"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <PropertyGroup>
+      <_FileConfigurationAssembly>$(PkgMicrosoft_Extensions_Configuration_FileExtensions)/lib/net10.0/Microsoft.Extensions.Configuration.FileExtensions.dll</_FileConfigurationAssembly>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(_FileConfigurationAssembly)')"
+           Text="The Microsoft.Extensions.Configuration.FileExtensions runtime assembly was not restored." />
+    <Copy SourceFiles="$(_FileConfigurationAssembly)"
+          DestinationFiles="$(TargetDir)Microsoft.Extensions.Configuration.FileExtensions.dll"
+          SkipUnchangedFiles="true" />
+    <Error Condition="!Exists('$(TargetDir)Microsoft.Extensions.Configuration.FileExtensions.dll')"
+           Text="The Microsoft.Extensions.Configuration.FileExtensions runtime assembly was not copied to the application output." />
+  </Target>
 </Project>

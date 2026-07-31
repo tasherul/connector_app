@@ -290,6 +290,13 @@ proven.
 
 ## Troubleshooting
 
+- **`Microsoft.Extensions.Configuration.FileExtensions` is missing:** update
+  to the latest `main`, select **Build > Clean Solution**, close Visual
+  Studio, delete only the generated `bin` and `obj` folders, reopen the
+  solution, restore NuGet packages, and select **Rebuild Solution**. Do not
+  copy the small executable from a normal `bin` folder by itself; run it with
+  all adjacent DLLs or use the self-contained executable from the `publish`
+  folder.
 - **Certificate approval required:** compare the SHA-256 fingerprint with the
   POS administrator; do not approve an unknown certificate.
 - **Certificate changed:** verify whether the POS certificate was

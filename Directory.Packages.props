@@ -5,6 +5,7 @@
 
   <ItemGroup>
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.FileExtensions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.10" />
     <PackageVersion Include="Serilog" Version="4.4.0" />
