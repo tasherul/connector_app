@@ -47,7 +47,59 @@ public partial class App : Application
             "Logs",
             "connector-.log");
 
-        _host = Host.CreateDefaultBuilder()
+        string startupStage = "building application services";
+        try
+        {
+            IHost host = BuildHost(logPath);
+            _host = host;
+
+            startupStage = "starting application services";
+            await host.StartAsync(_applicationSource.Token);
+
+            startupStage = "loading saved settings";
+            MainWindowViewModel viewModel =
+                host.Services.GetRequiredService<MainWindowViewModel>();
+            await viewModel.InitializeAsync(_applicationSource.Token);
+
+            startupStage = "creating the main window";
+            MainWindow window = await Dispatcher.InvokeAsync(
+                () => host.Services.GetRequiredService<MainWindow>());
+
+            startupStage = "showing the main window";
+            await Dispatcher.InvokeAsync(() =>
+            {
+                MainWindow = window;
+                ShutdownMode = ShutdownMode.OnMainWindowClose;
+                window.Show();
+            });
+        }
+        catch (Exception exception)
+        {
+            string errorCode = $"0x{exception.HResult:X8}";
+            string exceptionTarget =
+                exception.TargetSite?.DeclaringType?.FullName is string typeName
+                    ? $"{typeName}.{exception.TargetSite.Name}"
+                    : "unknown";
+            Log.Fatal(
+                "Application startup failed at {StartupStage} " +
+                "({ExceptionType}, {ExceptionTarget}, {ErrorCode})",
+                startupStage,
+                exception.GetType().Name,
+                exceptionTarget,
+                errorCode);
+            MessageBox.Show(
+                $"Retwho Connector could not start while {startupStage}.\n\n" +
+                $"Error: {exception.GetType().Name} ({errorCode})\n" +
+                "See the local log for the safe diagnostic target.",
+                "Retwho Connector",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown(1);
+        }
+    }
+
+    private IHost BuildHost(string logPath) =>
+        Host.CreateDefaultBuilder()
             .UseSerilog((_, _, configuration) =>
                 configuration
                     .MinimumLevel.Information()
@@ -100,30 +152,6 @@ public partial class App : Application
                 services.AddSingleton<MainWindow>();
             })
             .Build();
-
-        try
-        {
-            await _host.StartAsync(_applicationSource.Token);
-            MainWindowViewModel viewModel =
-                _host.Services.GetRequiredService<MainWindowViewModel>();
-            await viewModel.InitializeAsync(_applicationSource.Token);
-            MainWindow window = _host.Services.GetRequiredService<MainWindow>();
-            MainWindow = window;
-            window.Show();
-        }
-        catch (Exception exception)
-        {
-            Log.Fatal(
-                "Application startup failed ({ExceptionType})",
-                exception.GetType().Name);
-            MessageBox.Show(
-                "Retwho Connector could not start. See the local log for details.",
-                "Retwho Connector",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-            Shutdown(1);
-        }
-    }
 
     protected override async void OnExit(ExitEventArgs e)
     {
