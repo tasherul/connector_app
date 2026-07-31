@@ -79,4 +79,63 @@ public sealed class DocumentationTests
             readme,
             StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Readme_DocumentsPluBridgeActionParametersAndPagination()
+    {
+        string readme = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "README.md"));
+
+        Assert.Contains("`get_plu_page`", readme, StringComparison.Ordinal);
+        Assert.Contains("`get_plu`", readme, StringComparison.Ordinal);
+        Assert.Contains(
+            "`get_referential_integrity`",
+            readme,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "`pageSize` defaults to `100`",
+            readme,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "`upcModifier` defaults to `000`",
+            readme,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "`prodCodes,departments,ageValidations,taxRates,blueLaws,fees`",
+            readme,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "exactly one POS page",
+            readme,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Readme_DocumentsPluResultSafetyAndSingleSessionRefresh()
+    {
+        string readme = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "README.md"));
+
+        Assert.Contains(
+            "`ok: true` and `found: false`",
+            readme,
+            StringComparison.Ordinal);
+        Assert.Contains("omit `rawXml`", readme, StringComparison.Ordinal);
+        Assert.Contains(
+            "one `validate` login and one retry",
+            readme,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "inventory payloads",
+            readme,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "credential-bearing requests",
+            readme,
+            StringComparison.Ordinal);
+    }
 }

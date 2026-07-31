@@ -177,6 +177,156 @@ reconnection.
 Connecting or registering never calls `vdatetime`. The connector does not
 poll and does not also send `agent_data_push` for this command.
 
+## PLU and referential bridge actions
+
+The bridge can also send `get_plu_page`, `get_plu`, and
+`get_referential_integrity` through `execute_local_action`. Each action uses
+the existing bounded action ID, object-valued `params`, eight-second command
+deadline, one-MiB acknowledged JSON limit, duplicate sharing, and exactly-once
+acknowledgement rules. Invalid parameters are rejected as `INVALID_ACTION`
+before the connector loads POS credentials or contacts the POS.
+
+### `get_plu_page`
+
+`get_plu_page` reads a bounded PLU page. `page` defaults to `1` and must be a
+positive integer. `pageSize` defaults to `100` and must be an integer from
+`1` through `100`. One bridge action retrieves exactly one POS page; the
+cloud owns pagination and requests any next page using `totalPages` from the
+previous acknowledgement. The connector never fetches every page on the
+cloud's behalf.
+
+Synthetic request:
+
+```json
+{
+  "actionId": "FAKE-PLU-PAGE-001",
+  "command": "get_plu_page",
+  "params": {
+    "page": 2,
+    "pageSize": 25
+  }
+}
+```
+
+Synthetic successful result:
+
+```json
+{
+  "ok": true,
+  "result": {
+    "source": "NAXML",
+    "command": "vPLUs",
+    "page": 2,
+    "totalPages": 4,
+    "requestedPageSize": 25,
+    "itemCount": 1,
+    "products": [
+      {
+        "upc": "00000000000001",
+        "upcModifier": "000",
+        "description": "FAKE PRODUCT A",
+        "departmentId": "10",
+        "feeIds": ["0"],
+        "price": 4.67,
+        "flagIds": [],
+        "taxRateIds": ["2"],
+        "idCheckIds": [],
+        "groupCodes": []
+      }
+    ],
+    "fetchedAtUtc": "2026-07-31T00:00:00Z"
+  }
+}
+```
+
+### `get_plu`
+
+`get_plu` reads one exact PLU. `upc` is required and must contain one through
+32 decimal digits; its leading zeroes are preserved. `upcModifier` defaults to `000`
+and must contain exactly three decimal digits. The connector uses a
+fixed POS selector page of `1` and page size of `100` for this exact lookup.
+
+Synthetic request with the default modifier:
+
+```json
+{
+  "actionId": "FAKE-PLU-LOOKUP-001",
+  "command": "get_plu",
+  "params": {
+    "upc": "00000000000002"
+  }
+}
+```
+
+An empty valid POS result is a successful lookup, not an error: the bridge
+acknowledgement has `ok: true` and `found: false`, and it omits `product`.
+
+```json
+{
+  "ok": true,
+  "result": {
+    "source": "NAXML",
+    "command": "vPLU",
+    "requestedUpc": "00000000000002",
+    "requestedUpcModifier": "000",
+    "found": false,
+    "fetchedAtUtc": "2026-07-31T00:00:00Z"
+  }
+}
+```
+
+### `get_referential_integrity`
+
+`get_referential_integrity` accepts only an empty `params` object. It always
+requests the fixed dataset list
+`prodCodes,departments,ageValidations,taxRates,blueLaws,fees` in that order.
+The cloud cannot add, remove, reorder, or inject dataset names.
+
+Synthetic request and abbreviated result:
+
+```json
+{
+  "actionId": "FAKE-REFERENTIAL-001",
+  "command": "get_referential_integrity",
+  "params": {}
+}
+```
+
+```json
+{
+  "ok": true,
+  "result": {
+    "source": "NAXML",
+    "command": "vrefinteg",
+    "siteId": "FAKE-SITE",
+    "limits": {
+      "maxRecords": 100,
+      "maxFeesPerItem": 8
+    },
+    "taxRates": [],
+    "departments": [],
+    "productCodes": [],
+    "ageValidations": [],
+    "fees": [],
+    "blueLaws": [],
+    "fetchedAtUtc": "2026-07-31T00:00:00Z"
+  }
+}
+```
+
+All three new results use camelCase JSON, preserve identifiers as strings,
+omit null optional fields, and return collection properties as empty arrays.
+They omit `rawXml`, POS origins, cookies, request details, and diagnostic
+metadata.
+
+### Shared POS session recovery
+
+Every POS data action first tries the saved cookie once. If the POS identifies
+an expired session through HTTP or the supported XML fault, the connector
+performs one `validate` login and one retry, atomically saving the replacement
+encrypted cookie before retrying the original action. A second authentication
+failure returns `POS_AUTH_EXPIRED`; it does not cause another login or retry.
+
 ## Required NAXML request profile
 
 Both `validate` and `vdatetime` use this profile:
@@ -288,6 +438,10 @@ passwords, cookies, full licenses, credential-bearing request URIs/bodies,
 raw XML, settings objects, ciphertext, authorization values, or sensitive
 header values.
 
+PLU products and referential records are inventory payloads. Logs never
+contain inventory payloads or credential-bearing requests, including their
+query strings and bodies.
+
 The safe POS response-header metadata is status code, content type, declared
 length, content encodings, date, server, retry delay, and Boolean presence of
 `Set-Cookie` or `WWW-Authenticate`. Status code controls HTTP
@@ -328,7 +482,7 @@ adds a safe unclean-exit warning to the activity log.
 | Code | Meaning |
 |---|---|
 | `INVALID_ACTION` | The bridge action is malformed |
-| `UNSUPPORTED_COMMAND` | v1 supports only `get_current_data` |
+| `UNSUPPORTED_COMMAND` | The requested bridge command is not supported |
 | `POS_LOGIN_FAILED` | POS credentials were rejected or login XML was invalid |
 | `POS_AUTH_EXPIRED` | The cached POS session is no longer valid |
 | `POS_CERTIFICATE_UNTRUSTED` | A POS certificate needs approval |
