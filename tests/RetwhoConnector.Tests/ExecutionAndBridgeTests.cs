@@ -634,7 +634,9 @@ public sealed class ExecutionAndBridgeTests
         await coordinator.HandleActionAsync(context, CancellationToken.None);
 
         Assert.False(sent!.Ok);
-        Assert.StartsWith("UNSUPPORTED_COMMAND:", sent.Error, StringComparison.Ordinal);
+        Assert.Equal(
+            "UNSUPPORTED_COMMAND: The requested command is not supported.",
+            sent.Error);
         Assert.Equal(0, settingsService.LoadCalls);
         Assert.Equal(0, authentication.Calls);
         Assert.Equal(0, data.OperationCalls);

@@ -567,10 +567,10 @@ public sealed class PosProtocolTests
             string.Join(", ", request.Headers.GetValues("Accept-Encoding")));
         Assert.Equal(
             PosCompatibilityHeaders.AcceptLanguage,
-            string.Join(", ", request.Headers.GetValues("Accept-Language")));
+            request.Headers.NonValidated["Accept-Language"].ToString());
         Assert.Equal("https://pos.example.test", request.Headers.GetValues("Origin").Single());
         Assert.Equal("https://pos.example.test/ConfigClient.html", request.Headers.Referrer!.ToString());
-        Assert.Equal("keep-alive", request.Headers.Connection.Single().Value);
+        Assert.Equal("keep-alive", request.Headers.Connection.Single());
         Assert.Equal(
             PosCompatibilityHeaders.SecFetchDest,
             request.Headers.GetValues("Sec-Fetch-Dest").Single());
@@ -589,8 +589,9 @@ public sealed class PosProtocolTests
         Assert.Equal(
             PosCompatibilityHeaders.SecChUaPlatform,
             request.Headers.GetValues("sec-ch-ua-platform").Single());
-        Assert.Equal("text/plain; charset=UTF-8", request.Content.Headers.ContentType!.ToString());
-        Assert.Equal(Encoding.UTF8.GetByteCount(body), request.Content.Headers.ContentLength);
+        HttpContent content = Assert.IsAssignableFrom<HttpContent>(request.Content);
+        Assert.Equal("text/plain; charset=UTF-8", content.Headers.ContentType!.ToString());
+        Assert.Equal(Encoding.UTF8.GetByteCount(body), content.Headers.ContentLength);
         Assert.DoesNotContain("Accept", request.Headers.Select(header => header.Key));
         Assert.True(request.Options.TryGetValue(
             PosHttpRequestFactory.CommandKey,

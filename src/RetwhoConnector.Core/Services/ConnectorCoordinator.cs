@@ -232,7 +232,7 @@ public sealed class ConnectorCoordinator : IAsyncDisposable
         if (operation is null)
         {
             return BridgeAcknowledgement.Failure(
-                "UNSUPPORTED_COMMAND: Only get_current_data is supported.");
+                "UNSUPPORTED_COMMAND: The requested command is not supported.");
         }
 
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(
