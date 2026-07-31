@@ -55,6 +55,112 @@ public sealed class ConnectorContractTests
     }
 
     [Fact]
+    public void PluPageParameters_ApplyDefaultsAndReadSuppliedValues()
+    {
+        using JsonDocument defaults = JsonDocument.Parse("{}");
+        Assert.Equal(
+            new PluPageQuery(1, 100),
+            BridgeActionParameterReader.ReadPluPage(defaults.RootElement));
+
+        using JsonDocument supplied =
+            JsonDocument.Parse("""{"page":2,"pageSize":25}""");
+        Assert.Equal(
+            new PluPageQuery(2, 25),
+            BridgeActionParameterReader.ReadPluPage(supplied.RootElement));
+    }
+
+    [Theory]
+    [InlineData("""{"page":0}""", "page must be an integer between 1 and 2147483647.")]
+    [InlineData("""{"page":1.5}""", "page must be an integer between 1 and 2147483647.")]
+    [InlineData("""{"pageSize":0}""", "pageSize must be an integer between 1 and 100.")]
+    [InlineData("""{"pageSize":101}""", "pageSize must be an integer between 1 and 100.")]
+    [InlineData("""{"unexpected":true}""", "Parameters contain an unsupported property.")]
+    public void PluPageParameters_RejectInvalidValues(string json, string message)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+
+        ArgumentException exception = Assert.Throws<ArgumentException>(
+            () => BridgeActionParameterReader.ReadPluPage(document.RootElement));
+
+        Assert.Equal(message, exception.Message);
+    }
+
+    [Fact]
+    public void PluLookupParameters_DefaultModifier()
+    {
+        using JsonDocument lookup =
+            JsonDocument.Parse("""{"upc":"00000000000001"}""");
+
+        Assert.Equal(
+            new PluLookupQuery("00000000000001", "000"),
+            BridgeActionParameterReader.ReadPluLookup(lookup.RootElement));
+    }
+
+    [Theory]
+    [InlineData("{}", "upc is required.")]
+    [InlineData("""{"upc":""}""", "upc must contain 1 to 32 digits.")]
+    [InlineData("""{"upc":"ABC"}""", "upc must contain 1 to 32 digits.")]
+    [InlineData("""{"upc":"123456789012345678901234567890123"}""", "upc must contain 1 to 32 digits.")]
+    [InlineData("""{"upc":"00000000000001","upcModifier":"00"}""", "upcModifier must contain exactly 3 digits.")]
+    [InlineData("""{"upc":"00000000000001","upcModifier":"0A0"}""", "upcModifier must contain exactly 3 digits.")]
+    [InlineData("""{"upc":"00000000000001","unexpected":true}""", "Parameters contain an unsupported property.")]
+    public void PluLookupParameters_RejectInvalidValues(string json, string message)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+
+        ArgumentException exception = Assert.Throws<ArgumentException>(
+            () => BridgeActionParameterReader.ReadPluLookup(document.RootElement));
+
+        Assert.Equal(message, exception.Message);
+    }
+
+    [Fact]
+    public void PluResults_UseCamelCaseNumbersAndOmitNullProduct()
+    {
+        DateTimeOffset fetchedAtUtc = new(2026, 7, 31, 0, 0, 0, TimeSpan.Zero);
+        var product = new PluProduct
+        {
+            Upc = "00000000000001",
+            UpcModifier = "000",
+            Description = "FAKE PRODUCT",
+            DepartmentId = "19",
+            FeeIds = ["0"],
+            ProductCode = "0",
+            Price = 4.67m,
+            TaxRateIds = ["1"],
+            IdCheckIds = ["2"],
+            SellUnit = 1.000m,
+            TaxableRebateAmount = 0.00m,
+            GroupCodes = [new IndexedCode { Index = 0, Code = "5" }],
+            MaxQuantityPerTransaction = 2.00m,
+        };
+        var page = new PluPageResult
+        {
+            Page = 1,
+            TotalPages = 4,
+            RequestedPageSize = 100,
+            ItemCount = 1,
+            Products = [product],
+            FetchedAtUtc = fetchedAtUtc,
+        };
+        var lookup = new PluLookupResult
+        {
+            RequestedUpc = "00000000000002",
+            RequestedUpcModifier = "000",
+            Found = false,
+            Product = null,
+            FetchedAtUtc = fetchedAtUtc,
+        };
+
+        Assert.Equal(
+            """{"source":"NAXML","command":"vPLUs","page":1,"totalPages":4,"requestedPageSize":100,"itemCount":1,"products":[{"upc":"00000000000001","upcModifier":"000","description":"FAKE PRODUCT","departmentId":"19","feeIds":["0"],"productCode":"0","price":4.67,"flagIds":[],"taxRateIds":["1"],"idCheckIds":["2"],"sellUnit":1.000,"taxableRebateAmount":0.00,"groupCodes":[{"index":0,"code":"5"}],"maxQuantityPerTransaction":2.00}],"fetchedAtUtc":"2026-07-31T00:00:00+00:00"}""",
+            JsonSerializer.Serialize(page, ConnectorJson.Options));
+        Assert.Equal(
+            """{"source":"NAXML","command":"vPLU","requestedUpc":"00000000000002","requestedUpcModifier":"000","found":false,"fetchedAtUtc":"2026-07-31T00:00:00+00:00"}""",
+            JsonSerializer.Serialize(lookup, ConnectorJson.Options));
+    }
+
+    [Fact]
     public void ActionValidation_RequiresObjectParams()
     {
         using JsonDocument document = JsonDocument.Parse("[]");
