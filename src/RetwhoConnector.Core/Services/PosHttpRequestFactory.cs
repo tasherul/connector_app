@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Xml.Linq;
 using RetwhoConnector.Core.Configuration;
 using RetwhoConnector.Core.Models;
 
@@ -8,6 +9,11 @@ namespace RetwhoConnector.Core.Services;
 
 public sealed class PosHttpRequestFactory(PosOptions options)
 {
+    private static readonly XNamespace DomainNamespace =
+        "urn:vfi-sapphire:np.domain.2001-07-01";
+    private const string ReferentialDataset =
+        "prodCodes,departments,ageValidations,taxRates,blueLaws,fees";
+
     internal static readonly HttpRequestOptionsKey<Uri> ConfiguredOriginKey =
         new("RetwhoConnector.ConfiguredPosOrigin");
     internal static readonly HttpRequestOptionsKey<string> CertificatePinKey =
@@ -19,41 +25,93 @@ public sealed class PosHttpRequestFactory(PosOptions options)
         CertificateDecisionKey =
             new("RetwhoConnector.CertificateDecision");
 
-    public HttpRequestMessage CreateLogin(ConnectorSettings settings) =>
-        Create(
-            settings,
+    public HttpRequestMessage CreateLogin(ConnectorSettings settings)
+    {
+        string formLine = EncodeForm(
             [
                 new("cmd", "validate"),
                 new("user", settings.PosUsername),
                 new("passwd", settings.PosPassword),
             ]);
+        return Create(settings, "validate", formLine, formLine);
+    }
 
     public HttpRequestMessage CreateVdatetime(
         ConnectorSettings settings,
         string cookie)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cookie);
-        return Create(
-            settings,
+        string formLine = EncodeForm(
             [
                 new("cmd", "vdatetime"),
                 new("cookie", cookie),
             ]);
+        return Create(settings, "vdatetime", formLine, formLine);
+    }
+
+    public HttpRequestMessage CreatePluPage(
+        ConnectorSettings settings,
+        string cookie,
+        PluPageQuery query)
+    {
+        string formLine = CreatePluFormLine(cookie);
+        return Create(
+            settings,
+            "vPLUs",
+            formLine,
+            JoinFormAndSelector(
+                formLine,
+                CreatePageSelector(query.Page, query.PageSize)));
+    }
+
+    public HttpRequestMessage CreatePlu(
+        ConnectorSettings settings,
+        string cookie,
+        PluLookupQuery query)
+    {
+        string formLine = CreatePluFormLine(cookie);
+        var selector = new XElement(
+            DomainNamespace + "PLUSelect",
+            new XAttribute(XNamespace.Xmlns + "domain", DomainNamespace),
+            new XElement(
+                "query",
+                new XElement(
+                    "where",
+                    new XElement(
+                        "upc",
+                        new XAttribute("source", "keyboard"),
+                        query.Upc),
+                    new XElement("upcModifier", query.UpcModifier))),
+            new XElement("pageSize", 100),
+            new XElement("page", 1));
+        return Create(
+            settings,
+            "vPLUs",
+            formLine,
+            JoinFormAndSelector(formLine, selector));
+    }
+
+    public HttpRequestMessage CreateReferentialIntegrity(
+        ConnectorSettings settings,
+        string cookie)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(cookie);
+        string formLine =
+            $"cmd=vrefinteg&dataset={ReferentialDataset}&cookie={Uri.EscapeDataString(cookie)}";
+        return Create(settings, "vrefinteg", formLine, formLine);
     }
 
     private HttpRequestMessage Create(
         ConnectorSettings settings,
-        IReadOnlyList<KeyValuePair<string, string>> parameters)
+        string command,
+        string query,
+        string body)
     {
         Uri origin = new(settings.PosBaseUrl, UriKind.Absolute);
-        string payload = string.Join(
-            "&",
-            parameters.Select(pair =>
-                $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"));
         var endpoint = new UriBuilder(origin)
         {
             Path = options.NaxmlPath,
-            Query = payload,
+            Query = query,
         };
         var request = new HttpRequestMessage(HttpMethod.Post, endpoint.Uri)
         {
@@ -61,7 +119,7 @@ public sealed class PosHttpRequestFactory(PosOptions options)
             VersionPolicy = HttpVersionPolicy.RequestVersionOrLower,
         };
 
-        byte[] payloadBytes = Encoding.UTF8.GetBytes(payload);
+        byte[] payloadBytes = Encoding.UTF8.GetBytes(body);
         request.Content = new ByteArrayContent(payloadBytes);
         request.Content.Headers.ContentType = new MediaTypeHeaderValue("text/plain")
         {
@@ -88,8 +146,7 @@ public sealed class PosHttpRequestFactory(PosOptions options)
             new CertificateValidationDecision());
         request.Options.Set(
             CommandKey,
-            parameters.First(pair =>
-                pair.Key.Equals("cmd", StringComparison.Ordinal)).Value);
+            command);
         if (!string.IsNullOrWhiteSpace(settings.PinnedCertificateSha256))
         {
             request.Options.Set(
@@ -99,6 +156,29 @@ public sealed class PosHttpRequestFactory(PosOptions options)
 
         return request;
     }
+
+    private static string EncodeForm(
+        IReadOnlyList<KeyValuePair<string, string>> parameters) =>
+        string.Join(
+            "&",
+            parameters.Select(pair =>
+                $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"));
+
+    private static string CreatePluFormLine(string cookie)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(cookie);
+        return $"cmd=vPLUs&cookie={Uri.EscapeDataString(cookie)}";
+    }
+
+    private static XElement CreatePageSelector(int page, int pageSize) =>
+        new(
+            DomainNamespace + "PLUSelect",
+            new XAttribute(XNamespace.Xmlns + "domain", DomainNamespace),
+            new XElement("pageSize", pageSize),
+            new XElement("page", page));
+
+    private static string JoinFormAndSelector(string formLine, XElement selector) =>
+        formLine + "\r\n\r\n" + selector.ToString(SaveOptions.DisableFormatting);
 
     private static void Add(
         HttpRequestMessage request,

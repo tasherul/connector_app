@@ -11,6 +11,66 @@ namespace RetwhoConnector.Tests;
 public sealed class PosProtocolTests
 {
     [Fact]
+    public async Task PluPageRequest_UsesExactSelectorBytes()
+    {
+        var factory = new PosHttpRequestFactory(new PosOptions());
+        using HttpRequestMessage request = factory.CreatePluPage(
+            CreateSettings(),
+            "FAKE_COOKIE",
+            new PluPageQuery(2, 25));
+
+        Assert.Equal(
+            "cmd=vPLUs&cookie=FAKE_COOKIE",
+            request.RequestUri!.Query.TrimStart('?'));
+        const string expected =
+            "cmd=vPLUs&cookie=FAKE_COOKIE\r\n\r\n" +
+            "<domain:PLUSelect xmlns:domain=\"urn:vfi-sapphire:np.domain.2001-07-01\">" +
+            "<pageSize>25</pageSize><page>2</page></domain:PLUSelect>";
+        Assert.Equal(expected, await request.Content!.ReadAsStringAsync());
+
+        AssertRequestCompatibility(request, "vPLUs", expected);
+    }
+
+    [Fact]
+    public async Task PluRequest_UsesExactKeyboardLookupSelector()
+    {
+        var factory = new PosHttpRequestFactory(new PosOptions());
+        using HttpRequestMessage request = factory.CreatePlu(
+            CreateSettings(),
+            "FAKE_COOKIE",
+            new PluLookupQuery("00000000000001", "000"));
+
+        Assert.Equal(
+            "cmd=vPLUs&cookie=FAKE_COOKIE",
+            request.RequestUri!.Query.TrimStart('?'));
+        const string expected =
+            "cmd=vPLUs&cookie=FAKE_COOKIE\r\n\r\n" +
+            "<domain:PLUSelect xmlns:domain=\"urn:vfi-sapphire:np.domain.2001-07-01\">" +
+            "<query><where><upc source=\"keyboard\">00000000000001</upc>" +
+            "<upcModifier>000</upcModifier></where></query>" +
+            "<pageSize>100</pageSize><page>1</page></domain:PLUSelect>";
+        Assert.Equal(expected, await request.Content!.ReadAsStringAsync());
+
+        AssertRequestCompatibility(request, "vPLUs", expected);
+    }
+
+    [Fact]
+    public async Task ReferentialIntegrityRequest_UsesFixedLiteralDataset()
+    {
+        var factory = new PosHttpRequestFactory(new PosOptions());
+        using HttpRequestMessage request = factory.CreateReferentialIntegrity(
+            CreateSettings(),
+            "FAKE_COOKIE");
+        const string expected =
+            "cmd=vrefinteg&dataset=prodCodes,departments,ageValidations,taxRates,blueLaws,fees&cookie=FAKE_COOKIE";
+
+        Assert.Equal(expected, request.RequestUri!.Query.TrimStart('?'));
+        Assert.Equal(expected, await request.Content!.ReadAsStringAsync());
+
+        AssertRequestCompatibility(request, "vrefinteg", expected);
+    }
+
+    [Fact]
     public async Task LoginRequest_UsesExactCompatibilityProfile()
     {
         var factory = new PosHttpRequestFactory(new PosOptions());
@@ -250,6 +310,53 @@ public sealed class PosProtocolTests
 
     private static string Fixture(string name) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
+
+    private static void AssertRequestCompatibility(
+        HttpRequestMessage request,
+        string command,
+        string body)
+    {
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal(HttpVersion.Version11, request.Version);
+        Assert.Equal("pos.example.test", request.Headers.Host);
+        Assert.Equal(
+            PosCompatibilityHeaders.UserAgent,
+            request.Headers.UserAgent.ToString());
+        Assert.Equal(
+            PosCompatibilityHeaders.AcceptEncoding,
+            string.Join(", ", request.Headers.GetValues("Accept-Encoding")));
+        Assert.Equal(
+            PosCompatibilityHeaders.AcceptLanguage,
+            string.Join(", ", request.Headers.GetValues("Accept-Language")));
+        Assert.Equal("https://pos.example.test", request.Headers.GetValues("Origin").Single());
+        Assert.Equal("https://pos.example.test/ConfigClient.html", request.Headers.Referrer!.ToString());
+        Assert.Equal("keep-alive", request.Headers.Connection.Single().Value);
+        Assert.Equal(
+            PosCompatibilityHeaders.SecFetchDest,
+            request.Headers.GetValues("Sec-Fetch-Dest").Single());
+        Assert.Equal(
+            PosCompatibilityHeaders.SecFetchMode,
+            request.Headers.GetValues("Sec-Fetch-Mode").Single());
+        Assert.Equal(
+            PosCompatibilityHeaders.SecFetchSite,
+            request.Headers.GetValues("Sec-Fetch-Site").Single());
+        Assert.Equal(
+            PosCompatibilityHeaders.SecChUa,
+            request.Headers.GetValues("sec-ch-ua").Single());
+        Assert.Equal(
+            PosCompatibilityHeaders.SecChUaMobile,
+            request.Headers.GetValues("sec-ch-ua-mobile").Single());
+        Assert.Equal(
+            PosCompatibilityHeaders.SecChUaPlatform,
+            request.Headers.GetValues("sec-ch-ua-platform").Single());
+        Assert.Equal("text/plain; charset=UTF-8", request.Content.Headers.ContentType!.ToString());
+        Assert.Equal(Encoding.UTF8.GetByteCount(body), request.Content.Headers.ContentLength);
+        Assert.DoesNotContain("Accept", request.Headers.Select(header => header.Key));
+        Assert.True(request.Options.TryGetValue(
+            PosHttpRequestFactory.CommandKey,
+            out string? actualCommand));
+        Assert.Equal(command, actualCommand);
+    }
 
     private sealed class FakeHttpMessageHandler(HttpResponseMessage response)
         : HttpMessageHandler
