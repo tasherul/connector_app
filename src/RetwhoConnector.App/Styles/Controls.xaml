@@ -95,13 +95,15 @@
                             <StackPanel Orientation="Horizontal"
                                         HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                         VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
-                                <Path Width="16"
+                                <Path x:Name="ButtonIcon"
+                                      Width="16"
                                       Height="16"
                                       Data="{TemplateBinding Tag}"
                                       Fill="{TemplateBinding Foreground}"
                                       Stretch="Uniform"
                                       VerticalAlignment="Center" />
-                                <ContentPresenter Margin="8,0,0,0"
+                                <ContentPresenter x:Name="ButtonContent"
+                                                  Margin="8,0,0,0"
                                                   Content="{TemplateBinding Content}"
                                                   ContentTemplate="{TemplateBinding ContentTemplate}"
                                                   ContentStringFormat="{TemplateBinding ContentStringFormat}"
@@ -112,10 +114,10 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}" />
+                            <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource ButtonPressedBackgroundBrush}" />
+                            <Setter Property="Background" Value="{DynamicResource ButtonPressedBackgroundBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource DisabledBackgroundBrush}" />
@@ -125,6 +127,10 @@
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="FocusRing" Property="Opacity" Value="1" />
+                        </Trigger>
+                        <Trigger Property="Tag" Value="{x:Null}">
+                            <Setter TargetName="ButtonIcon" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="ButtonContent" Property="Margin" Value="0" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -145,12 +151,32 @@
         <Setter Property="Foreground" Value="{DynamicResource OnAccentTextBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource SuccessBrush}" />
         <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SuccessButtonHoverBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SuccessButtonPressedBrush}" />
+            </Trigger>
             <DataTrigger Binding="{Binding ConnectionActionText}" Value="Disconnect">
                 <Setter Property="Tag" Value="{StaticResource DisconnectIconGeometry}" />
                 <Setter Property="Background" Value="{DynamicResource DangerButtonBackgroundBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource OnDangerTextBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource DangerButtonBackgroundBrush}" />
             </DataTrigger>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding ConnectionActionText}" Value="Disconnect" />
+                    <Condition Property="IsMouseOver" Value="True" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Background" Value="{DynamicResource DangerButtonHoverBrush}" />
+            </MultiDataTrigger>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding ConnectionActionText}" Value="Disconnect" />
+                    <Condition Property="IsPressed" Value="True" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Background" Value="{DynamicResource DangerButtonPressedBrush}" />
+            </MultiDataTrigger>
         </Style.Triggers>
     </Style>
     <Style x:Key="LogsButtonStyle" TargetType="Button" BasedOn="{StaticResource ModernButtonBaseStyle}">
@@ -164,6 +190,14 @@
         <Setter Property="Background" Value="{DynamicResource DangerButtonBackgroundBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource OnDangerTextBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource DangerButtonBackgroundBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource DangerButtonHoverBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource DangerButtonPressedBrush}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
     <Style x:Key="DialogPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource ModernButtonBaseStyle}">
         <Setter Property="Background" Value="{DynamicResource AccentBrush}" />

@@ -8,6 +8,8 @@ public sealed class WpfThemeContractTests
         "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
     private static readonly XNamespace X =
         "http://schemas.microsoft.com/winfx/2006/xaml";
+    private static readonly XNamespace PresentationOptions =
+        "http://schemas.microsoft.com/winfx/2006/xaml/presentation/options";
 
     [Fact]
     public void ThemeBrushes_UseVisibleValuesAndReadableSemanticContrasts()
@@ -26,6 +28,35 @@ public sealed class WpfThemeContractTests
         Assert.NotEqual(values["DisabledTextBrush"], values["DisabledBackgroundBrush"]);
         Assert.NotEqual(values["ValidationTextBrush"], values["BackgroundBrush"]);
         Assert.NotEqual(values["ValidationTextBrush"], values["DialogBackgroundBrush"]);
+    }
+
+    [Fact]
+    public void ThemeTextBrushes_MeetWcagContrastAgainstTheirSurfaces()
+    {
+        IReadOnlyDictionary<string, string> values = BrushValues(LoadFixture("Colors.xaml"));
+
+        Assert.Contains("ErrorTextBrush", values.Keys);
+        AssertContrastAtLeast(values["PrimaryTextBrush"], values["BackgroundBrush"], 4.5);
+        AssertContrastAtLeast(values["SecondaryTextBrush"], values["BackgroundBrush"], 4.5);
+        AssertContrastAtLeast(values["InputForegroundBrush"], values["InputBackgroundBrush"], 4.5);
+        AssertContrastAtLeast(values["DisabledTextBrush"], values["DisabledBackgroundBrush"], 4.5);
+        AssertContrastAtLeast(values["ErrorTextBrush"], values["SurfaceRaisedBrush"], 4.5);
+        AssertContrastAtLeast(values["ValidationTextBrush"], values["DialogBackgroundBrush"], 4.5);
+    }
+
+    [Fact]
+    public void ConfigurationValidation_UsesTheContrastSafeErrorTextBrush()
+    {
+        XDocument configuration = LoadFixture("ConfigurationWindow.xaml");
+        XElement validation = Assert.Single(
+            configuration.Descendants(Presentation + "TextBlock"),
+            element => element.Attribute("Text")?.Value.Contains(
+                "ValidationMessage",
+                StringComparison.Ordinal) == true);
+
+        Assert.Equal(
+            "ErrorTextBrush",
+            ResourceKey(validation.Attribute("Foreground")!.Value));
     }
 
     [Fact]
@@ -54,15 +85,13 @@ public sealed class WpfThemeContractTests
         Assert.True(File.Exists(path), "The vector icon resource dictionary must be linked as a test fixture.");
 
         XDocument icons = XDocument.Load(path);
-        string[] keys = icons.Descendants()
-            .Select(element => element.Attribute(X + "Key")?.Value)
-            .Where(value => value is not null)
-            .Cast<string>()
-            .ToArray();
-
         foreach (string key in ApprovedIconKeys)
         {
-            Assert.Contains(key, keys);
+            XElement geometry = Assert.Single(
+                icons.Descendants(),
+                element => element.Attribute(X + "Key")?.Value == key);
+            Assert.Equal("PathGeometry", geometry.Name.LocalName);
+            Assert.Equal("True", geometry.Attribute(PresentationOptions + "Freeze")?.Value);
         }
     }
 
@@ -99,6 +128,29 @@ public sealed class WpfThemeContractTests
         Assert.Contains(triggers.Elements(Presentation + "Trigger"), trigger =>
             trigger.Attribute("Property")?.Value == "IsKeyboardFocused" &&
             trigger.Attribute("Value")?.Value == "True");
+        AssertTemplateStateSetter(triggers, "IsMouseOver", "ButtonHoverBackgroundBrush");
+        AssertTemplateStateSetter(triggers, "IsPressed", "ButtonPressedBackgroundBrush");
+
+        XElement icon = Assert.Single(
+            template.Descendants(Presentation + "Path"),
+            element => element.Attribute(X + "Name")?.Value == "ButtonIcon");
+        XElement content = Assert.Single(
+            template.Descendants(Presentation + "ContentPresenter"),
+            element => element.Attribute(X + "Name")?.Value == "ButtonContent");
+        Assert.Equal("{TemplateBinding Tag}", icon.Attribute("Data")?.Value);
+
+        XElement noIcon = Assert.Single(
+            triggers.Elements(Presentation + "Trigger"),
+            trigger => trigger.Attribute("Property")?.Value == "Tag" &&
+                trigger.Attribute("Value")?.Value == "{x:Null}");
+        Assert.Contains(noIcon.Elements(Presentation + "Setter"), setter =>
+            setter.Attribute("TargetName")?.Value == "ButtonIcon" &&
+            setter.Attribute("Property")?.Value == "Visibility" &&
+            setter.Attribute("Value")?.Value == "Collapsed");
+        Assert.Contains(noIcon.Elements(Presentation + "Setter"), setter =>
+            setter.Attribute("TargetName")?.Value == "ButtonContent" &&
+            setter.Attribute("Property")?.Value == "Margin" &&
+            setter.Attribute("Value")?.Value == "0");
     }
 
     [Fact]
@@ -122,6 +174,23 @@ public sealed class WpfThemeContractTests
             setter.Attribute("Property")?.Value == "Background");
         Assert.Contains(trigger.Elements(Presentation + "Setter"), setter =>
             setter.Attribute("Property")?.Value == "Foreground");
+
+        AssertStyleStateSetter(style, "IsMouseOver", "SuccessButtonHoverBrush");
+        AssertStyleStateSetter(style, "IsPressed", "SuccessButtonPressedBrush");
+        AssertDisconnectStateSetter(style, "IsMouseOver", "DangerButtonHoverBrush");
+        AssertDisconnectStateSetter(style, "IsPressed", "DangerButtonPressedBrush");
+    }
+
+    [Fact]
+    public void DangerButton_UsesDangerPaletteForHoverAndPressedStates()
+    {
+        XDocument controls = LoadFixture("Controls.xaml");
+        XElement style = Assert.Single(
+            controls.Descendants(Presentation + "Style"),
+            element => element.Attribute(X + "Key")?.Value == "DangerButtonStyle");
+
+        AssertStyleStateSetter(style, "IsMouseOver", "DangerButtonHoverBrush");
+        AssertStyleStateSetter(style, "IsPressed", "DangerButtonPressedBrush");
     }
 
     [Fact]
@@ -184,5 +253,91 @@ public sealed class WpfThemeContractTests
     {
         int keyStart = markup.IndexOf(" ", StringComparison.Ordinal) + 1;
         return markup[keyStart..].TrimEnd('}');
+    }
+
+    private static void AssertStyleStateSetter(
+        XElement style,
+        string state,
+        string resourceKey)
+    {
+        XElement trigger = Assert.Single(
+            style.Elements(Presentation + "Style.Triggers")
+                .Elements(Presentation + "Trigger"),
+            element => element.Attribute("Property")?.Value == state &&
+                element.Attribute("Value")?.Value == "True");
+        Assert.Contains(trigger.Elements(Presentation + "Setter"), setter =>
+            setter.Attribute("Property")?.Value == "Background" &&
+            setter.Attribute("Value")?.Value.Contains(resourceKey, StringComparison.Ordinal) == true);
+    }
+
+    private static void AssertTemplateStateSetter(
+        XElement triggers,
+        string state,
+        string resourceKey)
+    {
+        XElement trigger = Assert.Single(
+            triggers.Elements(Presentation + "Trigger"),
+            element => element.Attribute("Property")?.Value == state &&
+                element.Attribute("Value")?.Value == "True");
+        Assert.Contains(trigger.Elements(Presentation + "Setter"), setter =>
+            setter.Attribute("TargetName") is null &&
+            setter.Attribute("Property")?.Value == "Background" &&
+            setter.Attribute("Value")?.Value.Contains(resourceKey, StringComparison.Ordinal) == true);
+    }
+
+    private static void AssertDisconnectStateSetter(
+        XElement style,
+        string state,
+        string resourceKey)
+    {
+        XElement trigger = Assert.Single(
+            style.Elements(Presentation + "Style.Triggers")
+                .Elements(Presentation + "MultiDataTrigger"),
+            element => element.Descendants(Presentation + "Condition").Any(condition =>
+                    condition.Attribute("Binding")?.Value.Contains(
+                        "ConnectionActionText",
+                        StringComparison.Ordinal) == true &&
+                    condition.Attribute("Value")?.Value == "Disconnect") &&
+                element.Descendants(Presentation + "Condition").Any(condition =>
+                    condition.Attribute("Property")?.Value == state &&
+                    condition.Attribute("Value")?.Value == "True"));
+        Assert.Contains(trigger.Elements(Presentation + "Setter"), setter =>
+            setter.Attribute("Property")?.Value == "Background" &&
+            setter.Attribute("Value")?.Value.Contains(resourceKey, StringComparison.Ordinal) == true);
+    }
+
+    private static void AssertContrastAtLeast(
+        string foreground,
+        string background,
+        double minimumRatio)
+    {
+        double ratio = (RelativeLuminance(foreground) + 0.05) /
+            (RelativeLuminance(background) + 0.05);
+        if (ratio < 1)
+        {
+            ratio = 1 / ratio;
+        }
+
+        Assert.True(
+            ratio >= minimumRatio,
+            $"Expected {foreground} on {background} to meet {minimumRatio:0.0}:1, but was {ratio:0.00}:1.");
+    }
+
+    private static double RelativeLuminance(string color)
+    {
+        Assert.StartsWith("#", color, StringComparison.Ordinal);
+        Assert.Equal(7, color.Length);
+
+        return (0.2126 * LinearChannel(color[1..3])) +
+            (0.7152 * LinearChannel(color[3..5])) +
+            (0.0722 * LinearChannel(color[5..7]));
+    }
+
+    private static double LinearChannel(string hexadecimal)
+    {
+        double channel = Convert.ToInt32(hexadecimal, 16) / 255d;
+        return channel <= 0.04045
+            ? channel / 12.92
+            : Math.Pow((channel + 0.055) / 1.055, 2.4);
     }
 }

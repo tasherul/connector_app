@@ -56,7 +56,7 @@
                       Foreground="{DynamicResource PrimaryTextBrush}"
                       Margin="0,5,0,10" />
             <TextBlock Text="{Binding ValidationMessage}"
-                       Foreground="{DynamicResource ErrorBrush}"
+                       Foreground="{DynamicResource ErrorTextBrush}"
                        TextWrapping="Wrap"
                        MinHeight="20"
                        AutomationProperties.LiveSetting="Assertive" />
