@@ -82,6 +82,11 @@ public interface IAgentLog
         string? correlationId = null);
 }
 
+public interface ILogSanitizer
+{
+    string Sanitize(string? value);
+}
+
 public interface IPosResponseReader
 {
     Task<PosHttpResponse> ReadAsync(
