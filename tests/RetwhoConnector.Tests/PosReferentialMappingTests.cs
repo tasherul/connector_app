@@ -136,6 +136,49 @@ public sealed class PosReferentialMappingTests
         Assert.Equal(expected, Assert.Single(result.ProductCodes).IsFuel);
     }
 
+    [Fact]
+    public void Parse_MapsRecordsWhenOptionalDatasetLimitsAreMissing()
+    {
+        const string xml =
+            """
+            <referentialIntegrity>
+              <site>6720</site>
+              <fees maxFeesPerItem="5" maxRecords="300" />
+              <taxRates maxRecords="8">
+                <taxRate sysid="1" name="FL" />
+              </taxRates>
+              <departments>
+                <department sysid="29" name="FRUIT" isFuel="0" />
+              </departments>
+              <prodCodes>
+                <prodCode sysid="900" name="DISCOUNT 1" isFuel="0" disallowAssignment="1" />
+              </prodCodes>
+              <ageValidations maxRecords="6">
+                <ageValidation sysid="1" name="ALCOHOL ID CHECK" />
+              </ageValidations>
+              <blueLaws maxRecords="2" />
+            </referentialIntegrity>
+            """;
+
+        ReferentialIntegrityResult result =
+            new ReferentialIntegrityXmlMapper().Parse(xml, FetchedAt);
+
+        Assert.Null(result.Limits.Departments);
+        Assert.Null(result.Limits.ProdCodes);
+        Assert.Equal("FRUIT", Assert.Single(result.Departments).Name);
+        Assert.Equal("DISCOUNT 1", Assert.Single(result.ProductCodes).Name);
+        Assert.Equal(8, result.Limits.TaxRates?.MaxRecords);
+        Assert.Equal(6, result.Limits.AgeValidations?.MaxRecords);
+        Assert.Equal(2, result.Limits.BlueLaws?.MaxRecords);
+        Assert.Equal(
+            new ReferentialDatasetLimits
+            {
+                MaxRecords = 300,
+                MaxFeesPerItem = 5,
+            },
+            result.Limits.Fees);
+    }
+
     [Theory]
     [InlineData("<unexpected><site>FAKE-SITE</site><fees maxRecords=\"1\" maxFeesPerItem=\"1\" /></unexpected>")]
     [InlineData("<referentialIntegrity><fees maxRecords=\"1\" maxFeesPerItem=\"1\" /></referentialIntegrity>")]

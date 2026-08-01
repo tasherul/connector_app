@@ -156,17 +156,33 @@ public sealed class ReferentialIntegrityXmlMapper
 
     private static ReferentialDatasetLimits? ParseDatasetLimits(
         XElement? container,
-        bool includeMaxFeesPerItem = false) => container is null
-        ? null
-        : new ReferentialDatasetLimits
+        bool includeMaxFeesPerItem = false)
+    {
+        if (container is null)
         {
-            MaxRecords = ParseNonNegativeInteger(
-                RequiredAttributeValue(container, "maxRecords")),
+            return null;
+        }
+
+        string? maxRecords = OptionalAttributeValue(container, "maxRecords");
+        if (maxRecords is null)
+        {
+            if (includeMaxFeesPerItem)
+            {
+                throw Invalid("The POS response contains invalid referential limits.");
+            }
+
+            return null;
+        }
+
+        return new ReferentialDatasetLimits
+        {
+            MaxRecords = ParseNonNegativeInteger(maxRecords),
             MaxFeesPerItem = includeMaxFeesPerItem
                 ? ParseNonNegativeInteger(
                     RequiredAttributeValue(container, "maxFeesPerItem"))
                 : null,
         };
+    }
 
     private static int ParseNonNegativeInteger(string text)
     {
