@@ -54,6 +54,8 @@ public sealed class ExecutionAndBridgeTests
             TimeProvider.System,
             NullLogger<ConnectorCoordinator>.Instance,
             CancellationToken.None);
+        var statuses = new List<ConnectorStatus>();
+        coordinator.StatusChanged += (_, status) => statuses.Add(status);
         BridgeAcknowledgement? sent = null;
         BridgeActionContext context = CreateActionContext(
             acknowledgement =>
@@ -68,6 +70,16 @@ public sealed class ExecutionAndBridgeTests
         Assert.Equal(1, authentication.Calls);
         Assert.Equal(2, data.Calls);
         Assert.Equal("FAKE_NEW_COOKIE", settingsService.Settings!.PosCookie);
+        Assert.DoesNotContain(
+            statuses,
+            status =>
+                status.PosAuthentication == PosAuthenticationState.Authenticated &&
+                status.Message == "Refreshing the POS session…");
+        Assert.Contains(
+            statuses,
+            status =>
+                status.PosAuthentication == PosAuthenticationState.Authenticated &&
+                status.Message == "POS session refreshed.");
     }
 
     [Fact]

@@ -93,7 +93,7 @@ public sealed class PosHttpClient(
         long elapsedMilliseconds)
     {
         bool isFault = fault?.FaultCode is not null;
-        AgentLogLevel level = classification == "success"
+        AgentLogLevel level = classification is "success" or "sessionExpired"
             ? AgentLogLevel.Information
             : AgentLogLevel.Warning;
         AgentLogCategory category = classification switch
@@ -102,12 +102,19 @@ public sealed class PosHttpClient(
             "sessionExpired" => AgentLogCategory.Session,
             _ => AgentLogCategory.Error,
         };
-        string message = isFault
-            ? $"POS {request.Command} returned an XML fault in " +
-              $"{elapsedMilliseconds} ms."
-            : $"POS {request.Command} completed with HTTP " +
-              $"{result.Metadata.StatusCode} in " +
-              $"{elapsedMilliseconds} ms.";
+        string message = classification switch
+        {
+            "sessionExpired" =>
+                $"POS {request.Command} reported an expired session in " +
+                $"{elapsedMilliseconds} ms.",
+            _ when isFault =>
+                $"POS {request.Command} returned an XML fault in " +
+                $"{elapsedMilliseconds} ms.",
+            _ =>
+                $"POS {request.Command} completed with HTTP " +
+                $"{result.Metadata.StatusCode} in " +
+                $"{elapsedMilliseconds} ms.",
+        };
         agentLog.TryWrite(
             level,
             category,

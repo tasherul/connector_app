@@ -414,6 +414,7 @@ public sealed class ConnectorCoordinator : IAsyncDisposable
             UpdateStatus(CurrentStatus with
             {
                 PosAuthentication = PosAuthenticationState.Authenticated,
+                Message = "POS session refreshed.",
             });
             return result;
         }

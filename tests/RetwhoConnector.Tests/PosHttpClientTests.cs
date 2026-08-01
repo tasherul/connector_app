@@ -107,6 +107,8 @@ public sealed class PosHttpClientTests
             CancellationToken.None);
 
         RecordedLog entry = Assert.Single(log.Entries);
+        Assert.Equal(AgentLogLevel.Information, entry.Level);
+        Assert.Equal(AgentLogCategory.Session, entry.Category);
         Assert.NotNull(entry.Details);
         Assert.Contains(
             "CGIPortal.LoginRequired",
