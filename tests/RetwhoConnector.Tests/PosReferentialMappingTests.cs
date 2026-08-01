@@ -107,11 +107,41 @@ public sealed class PosReferentialMappingTests
     }
 
     [Theory]
+    [InlineData("1", true)]
+    [InlineData("0", false)]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    [InlineData("True", true)]
+    [InlineData("False", false)]
+    public void Parse_AcceptsCommonPosBooleanForms(string rawValue, bool expected)
+    {
+        string xml =
+            $$"""
+            <referentialIntegrity>
+              <site>FAKE-SITE</site>
+              <fees maxRecords="1" maxFeesPerItem="1" />
+              <departments maxRecords="1">
+                <department sysid="dept-1" name="FAKE DEPARTMENT" isFuel="{{rawValue}}" />
+              </departments>
+              <prodCodes maxRecords="1">
+                <prodCode sysid="pc-1" name="FAKE PRODUCT CODE" isFuel="{{rawValue}}" />
+              </prodCodes>
+            </referentialIntegrity>
+            """;
+
+        ReferentialIntegrityResult result =
+            new ReferentialIntegrityXmlMapper().Parse(xml, FetchedAt);
+
+        Assert.Equal(expected, Assert.Single(result.Departments).IsFuel);
+        Assert.Equal(expected, Assert.Single(result.ProductCodes).IsFuel);
+    }
+
+    [Theory]
     [InlineData("<unexpected><site>FAKE-SITE</site><fees maxRecords=\"1\" maxFeesPerItem=\"1\" /></unexpected>")]
     [InlineData("<referentialIntegrity><fees maxRecords=\"1\" maxFeesPerItem=\"1\" /></referentialIntegrity>")]
     [InlineData("<referentialIntegrity><site>FAKE-SITE</site><fees maxRecords=\"one\" maxFeesPerItem=\"1\" /></referentialIntegrity>")]
     [InlineData("<referentialIntegrity><site>FAKE-SITE</site><fees maxRecords=\"1\" maxFeesPerItem=\"many\" /></referentialIntegrity>")]
-    [InlineData("<referentialIntegrity><site>FAKE-SITE</site><fees maxRecords=\"1\" maxFeesPerItem=\"1\" /><departments><department sysid=\"dept\" name=\"FAKE\" isFuel=\"true\" /></departments></referentialIntegrity>")]
+    [InlineData("<referentialIntegrity><site>FAKE-SITE</site><fees maxRecords=\"1\" maxFeesPerItem=\"1\" /><departments><department sysid=\"dept\" name=\"FAKE\" isFuel=\"maybe\" /></departments></referentialIntegrity>")]
     [InlineData("<referentialIntegrity><site>FAKE-SITE</site><fees maxRecords=\"1\" maxFeesPerItem=\"1\"><fee customValue=\"a\"><CustomValue>b</CustomValue></fee></fees></referentialIntegrity>")]
     [InlineData("<referentialIntegrity><site>FAKE-SITE</site><fees maxRecords=\"1\" maxFeesPerItem=\"1\"><fee><definition><value>nested</value></definition></fee></fees></referentialIntegrity>")]
     [InlineData("<referentialIntegrity><site>FAKE-SITE</site><fees maxRecords=\"1\" maxFeesPerItem=\"1\" /><blueLaws><law><definition><value>nested</value></definition></law></blueLaws></referentialIntegrity>")]

@@ -55,13 +55,12 @@ public sealed class PosHttpRequestFactory(PosOptions options)
         PluPageQuery query)
     {
         string formLine = CreatePluFormLine(cookie);
+        XElement selector = CreatePageSelector(query.Page, query.PageSize);
         return Create(
             settings,
             "vPLUs",
             formLine,
-            JoinFormAndSelector(
-                formLine,
-                CreatePageSelector(query.Page, query.PageSize)));
+            selector.ToString(SaveOptions.DisableFormatting));
     }
 
     public HttpRequestMessage CreatePlu(
@@ -88,7 +87,7 @@ public sealed class PosHttpRequestFactory(PosOptions options)
             settings,
             "vPLUs",
             formLine,
-            JoinFormAndSelector(formLine, selector));
+            selector.ToString(SaveOptions.DisableFormatting));
     }
 
     public HttpRequestMessage CreateReferentialIntegrity(
@@ -176,9 +175,6 @@ public sealed class PosHttpRequestFactory(PosOptions options)
             new XAttribute(XNamespace.Xmlns + "domain", DomainNamespace),
             new XElement("pageSize", pageSize),
             new XElement("page", page));
-
-    private static string JoinFormAndSelector(string formLine, XElement selector) =>
-        formLine + "\r\n\r\n" + selector.ToString(SaveOptions.DisableFormatting);
 
     private static void Add(
         HttpRequestMessage request,

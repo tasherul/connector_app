@@ -24,7 +24,6 @@ public sealed class PosProtocolTests
             "cmd=vPLUs&cookie=FAKE_COOKIE",
             request.RequestUri!.Query.TrimStart('?'));
         const string expected =
-            "cmd=vPLUs&cookie=FAKE_COOKIE\r\n\r\n" +
             "<domain:PLUSelect xmlns:domain=\"urn:vfi-sapphire:np.domain.2001-07-01\">" +
             "<pageSize>25</pageSize><page>2</page></domain:PLUSelect>";
         Assert.Equal(expected, await request.Content!.ReadAsStringAsync());
@@ -45,7 +44,6 @@ public sealed class PosProtocolTests
             "cmd=vPLUs&cookie=FAKE_COOKIE",
             request.RequestUri!.Query.TrimStart('?'));
         const string expected =
-            "cmd=vPLUs&cookie=FAKE_COOKIE\r\n\r\n" +
             "<domain:PLUSelect xmlns:domain=\"urn:vfi-sapphire:np.domain.2001-07-01\">" +
             "<query><where><upc source=\"keyboard\">00000000000001</upc>" +
             "<upcModifier>000</upcModifier></where></query>" +

@@ -145,10 +145,12 @@ public sealed class ReferentialIntegrityXmlMapper
     private static string NormalizeName(string sourceName) =>
         JsonNamingPolicy.CamelCase.ConvertName(sourceName);
 
-    private static bool ParseStrictBoolean(string text) => text switch
+    private static bool ParseStrictBoolean(string text) => text.Trim() switch
     {
         "0" => false,
         "1" => true,
+        var value when value.Equals("false", StringComparison.OrdinalIgnoreCase) => false,
+        var value when value.Equals("true", StringComparison.OrdinalIgnoreCase) => true,
         _ => throw Invalid("The POS response contains an invalid boolean value."),
     };
 
