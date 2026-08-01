@@ -30,10 +30,13 @@ public sealed class DocumentationTests
 
     private static bool HasConnectorToPosReference(
         string section,
-        string request) =>
-        section.Contains(
+        string request)
+    {
+        string normalized = section.Replace("\r\n", "\n", StringComparison.Ordinal);
+        return normalized.Contains(
             $"{ConnectorToPosLabel}\n\n```text\n{request}\n```",
             StringComparison.Ordinal);
+    }
 
     [Fact]
     public void WebAppGuide_DocumentsFixedSocketBoundaryAndAcknowledgements()

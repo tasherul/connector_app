@@ -16,18 +16,20 @@ public sealed class LogPersistenceTests
         {
             MaximumFileBytes = 180,
         };
-        await using var sink = new RollingFileLogSink(
-            options,
-            new FixedTimeProvider());
-        LogEntry first = CreateEntry(
-            "first-" + new string('a', 70),
-            "line-one\nline-two");
-        LogEntry second = CreateEntry(
-            "second-" + new string('b', 70));
+        await using (var sink = new RollingFileLogSink(
+                         options,
+                         new FixedTimeProvider()))
+        {
+            LogEntry first = CreateEntry(
+                "first-" + new string('a', 70),
+                "line-one\nline-two");
+            LogEntry second = CreateEntry(
+                "second-" + new string('b', 70));
 
-        await sink.WriteAsync(first, CancellationToken.None);
-        await sink.WriteAsync(second, CancellationToken.None);
-        await sink.FlushAsync(CancellationToken.None);
+            await sink.WriteAsync(first, CancellationToken.None);
+            await sink.WriteAsync(second, CancellationToken.None);
+            await sink.FlushAsync(CancellationToken.None);
+        }
 
         string[] files = Directory.GetFiles(
             options.LogDirectory,
@@ -102,8 +104,7 @@ public sealed class LogPersistenceTests
             "action-1"));
         await pipeline.StopAsync(CancellationToken.None);
 
-        await using var connection = new SqliteConnection(
-            $"Data Source={options.DatabasePath}");
+        await using var connection = CreateTestConnection(options.DatabasePath);
         await connection.OpenAsync();
         await using SqliteCommand command = connection.CreateCommand();
         command.CommandText =
@@ -135,8 +136,7 @@ public sealed class LogPersistenceTests
             CancellationToken.None);
         await sink.FlushAsync(CancellationToken.None);
 
-        await using var connection = new SqliteConnection(
-            $"Data Source={options.DatabasePath}");
+        await using var connection = CreateTestConnection(options.DatabasePath);
         await connection.OpenAsync();
         Assert.Equal(
             "wal",
@@ -183,8 +183,7 @@ public sealed class LogPersistenceTests
 
         await sink.FlushAsync(CancellationToken.None);
 
-        await using var connection = new SqliteConnection(
-            $"Data Source={options.DatabasePath}");
+        await using var connection = CreateTestConnection(options.DatabasePath);
         await connection.OpenAsync();
         Assert.Equal(
             3L,
@@ -241,6 +240,16 @@ public sealed class LogPersistenceTests
         object? value = await command.ExecuteScalarAsync();
         return Assert.IsType<T>(value);
     }
+
+    private static SqliteConnection CreateTestConnection(string databasePath) =>
+        new(
+            new SqliteConnectionStringBuilder
+            {
+                DataSource = databasePath,
+                Mode = SqliteOpenMode.ReadWrite,
+                Cache = SqliteCacheMode.Private,
+                Pooling = false,
+            }.ToString());
 
     private sealed class FixedTimeProvider : TimeProvider
     {
