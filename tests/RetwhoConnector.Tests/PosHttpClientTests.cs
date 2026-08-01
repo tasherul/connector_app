@@ -109,6 +109,14 @@ public sealed class PosHttpClientTests
         RecordedLog entry = Assert.Single(log.Entries);
         Assert.Equal(AgentLogLevel.Information, entry.Level);
         Assert.Equal(AgentLogCategory.Session, entry.Category);
+        Assert.Contains(
+            "reported an expired session",
+            entry.Message,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "returned an XML fault",
+            entry.Message,
+            StringComparison.Ordinal);
         Assert.NotNull(entry.Details);
         Assert.Contains(
             "CGIPortal.LoginRequired",

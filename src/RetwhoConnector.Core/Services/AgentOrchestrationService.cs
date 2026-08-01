@@ -206,13 +206,6 @@ public sealed class AgentOrchestrationService :
 
     private static AgentLogCategory MapCategory(ConnectorStatus status)
     {
-        if (status.LastCommand is
-            LastCommandState.Running or
-            LastCommandState.Completed)
-        {
-            return AgentLogCategory.Action;
-        }
-
         if (status.LastCommand == LastCommandState.Failed ||
             status.BridgeTransport is
                 BridgeTransportState.AuthenticationFailed or
@@ -230,6 +223,13 @@ public sealed class AgentOrchestrationService :
             PosAuthenticationState.RefreshingSession)
         {
             return AgentLogCategory.Session;
+        }
+
+        if (status.LastCommand is
+            LastCommandState.Running or
+            LastCommandState.Completed)
+        {
+            return AgentLogCategory.Action;
         }
 
         return status.AgentRegistration == AgentRegistrationState.Registered

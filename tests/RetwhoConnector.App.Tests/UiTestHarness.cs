@@ -18,6 +18,7 @@ public sealed class UiTestHarness : IDisposable
     private readonly UiLogBufferSink _activity = new();
     private readonly FakeConfigurationDialogService _configurationDialog = new();
     private readonly FakeUserDialogService _dialogs = new();
+    private readonly List<Window> _windows = [];
 
     public MainWindow CreateMainWindow()
     {
@@ -28,13 +29,24 @@ public sealed class UiTestHarness : IDisposable
             _configurationDialog,
             _applicationControl,
             _dialogs);
-        return new MainWindow(viewModel, _applicationControl);
+        return Track(new MainWindow(viewModel, _applicationControl));
     }
 
     public ConfigurationWindow CreateConfigurationWindow()
     {
         ConfigurationWindowViewModel viewModel = new(_orchestration, _dialogs);
-        return new ConfigurationWindow(viewModel);
+        return Track(new ConfigurationWindow(viewModel));
+    }
+
+    public void ShowForRendering(Window window, Size size)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        window.Width = size.Width;
+        window.Height = size.Height;
+        window.Show();
+        window.Measure(size);
+        window.Arrange(new Rect(0, 0, size.Width, size.Height));
+        window.UpdateLayout();
     }
 
     public IReadOnlyList<ContentControl> FindStatusSegments(MainWindow window) =>
@@ -83,6 +95,21 @@ public sealed class UiTestHarness : IDisposable
 
     public void Dispose()
     {
+        RequestExit();
+        foreach (Window window in _windows.ToArray())
+        {
+            window.Close();
+        }
+
+        _windows.Clear();
+    }
+
+    private TWindow Track<TWindow>(TWindow window)
+        where TWindow : Window
+    {
+        _windows.Add(window);
+        window.Closed += (_, _) => _windows.Remove(window);
+        return window;
     }
 
     private static IEnumerable<T> FindDescendants<T>(DependencyObject root)

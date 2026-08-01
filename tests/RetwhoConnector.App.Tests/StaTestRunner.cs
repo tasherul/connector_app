@@ -11,6 +11,7 @@ public sealed class StaTestCollection : ICollectionFixture<StaTestRunner>
 
 public sealed class StaTestRunner : IAsyncLifetime
 {
+    private static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(10);
     private readonly TaskCompletionSource<Dispatcher> _dispatcherStarted = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly object _gate = new();
@@ -67,10 +68,27 @@ public sealed class StaTestRunner : IAsyncLifetime
 
         if (application is not null)
         {
-            await application.Dispatcher.InvokeAsync(application.Shutdown).Task;
+            Dispatcher dispatcher = application.Dispatcher;
+            if (!dispatcher.HasShutdownStarted)
+            {
+                await dispatcher.InvokeAsync(
+                    () =>
+                    {
+                        application.Shutdown();
+                        if (!dispatcher.HasShutdownStarted)
+                        {
+                            dispatcher.InvokeShutdown();
+                        }
+                    },
+                    DispatcherPriority.Send).Task.WaitAsync(ShutdownTimeout);
+            }
         }
 
-        thread?.Join();
+        if (thread is not null && !thread.Join(ShutdownTimeout))
+        {
+            throw new TimeoutException(
+                "The RetwhoConnector WPF test dispatcher did not shut down.");
+        }
     }
 
     private void RunDispatcher()

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using RetwhoConnector.Core.Abstractions;
 using RetwhoConnector.Core.Configuration;
@@ -112,6 +113,71 @@ public sealed class AgentOrchestrationServiceTests
             certificateTrust.LastOrigin);
     }
 
+    [Fact]
+    public async Task StatusChanged_PosRefreshDuringCommandLogsAsSession()
+    {
+        var settings = new FakeSettingsService(
+            CreateSettings() with { PosCookie = "FAKE_EXPIRED_COOKIE" });
+        var authentication = new FakeAuthenticationService();
+        var data = new FakeDataService
+        {
+            FailFirstWithAuthError = true,
+        };
+        var bridge = new FakeBridgeClient();
+        var log = new RecordingAgentLog();
+        await using var coordinator = new ConnectorCoordinator(
+            settings,
+            authentication,
+            data,
+            bridge,
+            new ActionExecutionRegistry(
+                TimeProvider.System,
+                CancellationToken.None),
+            new BridgeOptions(),
+            TimeProvider.System,
+            NullLogger<ConnectorCoordinator>.Instance,
+            CancellationToken.None);
+        using var service = new AgentOrchestrationService(
+            coordinator,
+            settings,
+            authentication,
+            new RecordingCertificateTrustService(),
+            log);
+        await service.ConnectSavedAsync(CancellationToken.None);
+        BridgeAcknowledgement? sent = null;
+        BridgeActionContext context = CreateActionContext(
+            acknowledgement =>
+            {
+                sent = acknowledgement;
+                return Task.CompletedTask;
+            });
+
+        await coordinator.HandleActionAsync(context, CancellationToken.None);
+
+        Assert.True(sent!.Ok);
+        RecordedLog refreshLog = Assert.Single(
+            log.Entries,
+            entry => entry.Message == "Refreshing the POS session…");
+        Assert.Equal(AgentLogLevel.Information, refreshLog.Level);
+        Assert.Equal(AgentLogCategory.Session, refreshLog.Category);
+    }
+
+    private static BridgeActionContext CreateActionContext(
+        Func<BridgeAcknowledgement, Task> acknowledge)
+    {
+        using JsonDocument document = JsonDocument.Parse("{}");
+        return new BridgeActionContext(
+            new BridgeAction
+            {
+                ActionId = Guid.NewGuid().ToString(),
+                Command = "get_current_data",
+                Params = document.RootElement.Clone(),
+                Timestamp = DateTimeOffset.UtcNow,
+            },
+            (value, _) => acknowledge(value),
+            CancellationToken.None);
+    }
+
     private static AgentOrchestrationService CreateService(
         FakeSettingsService settings,
         FakeAuthenticationService authentication,
@@ -202,12 +268,32 @@ public sealed class AgentOrchestrationServiceTests
 
     private sealed class FakeDataService : IPosDataService
     {
+        public bool FailFirstWithAuthError { get; init; }
+        private int _operationCalls;
+
         public Task<VdatetimeResult> GetVdatetimeAsync(
             ConnectorSettings settings,
             string cookie,
-            CancellationToken cancellationToken) =>
-            throw new InvalidOperationException(
-                "POS data is not used by these tests.");
+            CancellationToken cancellationToken)
+        {
+            _operationCalls++;
+            if (FailFirstWithAuthError && _operationCalls == 1)
+            {
+                throw new PosAuthenticationException(
+                    "POS_AUTH_EXPIRED",
+                    "Expired.");
+            }
+
+            return Task.FromResult(new VdatetimeResult
+            {
+                SiteId = "6720",
+                SystemDateTime = "2026-08-01T14:49:50Z",
+                SystemTimeZoneId = "UTC",
+                TimeZones = [],
+                RawXml = "<sysDateTime />",
+                FetchedAtUtc = DateTimeOffset.UtcNow,
+            });
+        }
 
         public Task<PluPageResult> GetPluPageAsync(
             ConnectorSettings settings,
@@ -326,6 +412,8 @@ public sealed class AgentOrchestrationServiceTests
 
     private sealed class RecordingAgentLog : IAgentLog
     {
+        public List<RecordedLog> Entries { get; } = [];
+
         public LogPipelineHealth CurrentHealth { get; } =
             new(LoggingHealthState.Healthy, 0, "Healthy.");
 
@@ -340,6 +428,16 @@ public sealed class AgentOrchestrationServiceTests
             AgentLogCategory category,
             string message,
             string? details = null,
-            string? correlationId = null) => true;
+            string? correlationId = null)
+        {
+            Entries.Add(new RecordedLog(level, category, message, details));
+            return true;
+        }
     }
+
+    private sealed record RecordedLog(
+        AgentLogLevel Level,
+        AgentLogCategory Category,
+        string Message,
+        string? Details);
 }

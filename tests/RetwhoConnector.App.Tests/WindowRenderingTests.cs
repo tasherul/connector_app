@@ -17,9 +17,7 @@ public sealed class WindowRenderingTests(StaTestRunner staTestRunner)
         {
             using UiTestHarness harness = new();
             MainWindow window = harness.CreateMainWindow();
-            window.Measure(new Size(1120, 760));
-            window.Arrange(new Rect(0, 0, 1120, 760));
-            window.UpdateLayout();
+            harness.ShowForRendering(window, new Size(1120, 760));
 
             Assert.NotNull(window.FindName("StatusRail"));
             Assert.Equal(4, harness.FindStatusSegments(window).Count);
@@ -37,10 +35,7 @@ public sealed class WindowRenderingTests(StaTestRunner staTestRunner)
         {
             using UiTestHarness harness = new();
             MainWindow window = harness.CreateMainWindow();
-            window.Width = 840;
-            window.Measure(new Size(840, 760));
-            window.Arrange(new Rect(0, 0, 840, 760));
-            window.UpdateLayout();
+            harness.ShowForRendering(window, new Size(840, 760));
 
             UniformGrid statusRail = Assert.IsType<UniformGrid>(
                 window.FindName("StatusRailGrid"));
@@ -58,10 +53,7 @@ public sealed class WindowRenderingTests(StaTestRunner staTestRunner)
         {
             using UiTestHarness harness = new();
             MainWindow window = harness.CreateMainWindow();
-            window.Measure(new Size(1120, 760));
-            window.Arrange(new Rect(0, 0, 1120, 760));
-            window.Show();
-            window.UpdateLayout();
+            harness.ShowForRendering(window, new Size(1120, 760));
 
             string[] actionNames =
             [
@@ -134,9 +126,7 @@ public sealed class WindowRenderingTests(StaTestRunner staTestRunner)
         {
             using UiTestHarness harness = new();
             ConfigurationWindow window = harness.CreateConfigurationWindow();
-            window.Measure(new Size(540, 620));
-            window.Arrange(new Rect(0, 0, 540, 620));
-            window.UpdateLayout();
+            harness.ShowForRendering(window, new Size(540, 620));
 
             harness.AssertTextHasContrastingBackground(
                 window,
