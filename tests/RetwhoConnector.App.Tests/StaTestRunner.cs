@@ -103,8 +103,8 @@ public sealed class StaTestRunner : IAsyncLifetime
         {
             ResourceDictionary dictionary = (ResourceDictionary)Application.LoadComponent(
                 new Uri(
-                    $"pack://application:,,,/RetwhoConnector;component/{resourcePath}",
-                    UriKind.Absolute));
+                    $"/RetwhoConnector;component/{resourcePath}",
+                    UriKind.Relative));
             application.Resources.MergedDictionaries.Add(dictionary);
         }
     }
